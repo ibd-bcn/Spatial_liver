@@ -24,7 +24,7 @@ library(tidyr)
 
 seu <- readRDS("/home/mmoro/SPATIAL/Maria_CosMx/Maria_v2/Post_analysis/Selecting_regions/seu.RDS")
 seu <- JoinLayers(seu)
-
+seu <- NormalizeData(seu)
 subset_type <- c(
   "hepatocytes" = "Hepatocytes",
   "myeloids" = "Myeloid_cells",
@@ -444,10 +444,9 @@ volcano <- function(anot = "subset", ct, dif_col = "tissue", seu,id1,id2){
   
 }
 
-## Figure 2A ----------------------------------
 
 
-## Figure 2B ----------------------------------
+## Figure 3A ----------------------------------
 
 #HDAg+/-	
 #S2F8 (for D+)
@@ -537,7 +536,7 @@ seu@meta.data$wide <-
   )
 
 png(filename = "~/SPATIAL/Maria_CosMx/Spatial_liver/figures/outs/volc_typeD.png",width = 10,height = 7,units = "in",res = 800)
-volcano(anot = "wide", ct = "Hepatocytes", dif_col = "Type_D", seu = seu,id1 = "+",id2 = "-")
+volcano(anot = "new_anot", ct = "Hepatocytes", dif_col = "Type_D", seu = seu,id1 = "+",id2 = "-")
 dev.off()
 
 
@@ -613,7 +612,7 @@ dev.off()
 explant <- seu[,rownames(seu@meta.data[seu@meta.data$tissue == "Slide_3" & seu@meta.data$fov %in% c(1,4,11,16,24,25,13,2,3,5,6,12,14,23),])]
 
 png(filename = "~/SPATIAL/Maria_CosMx/Spatial_liver/figures/outs/volc_typeS.png",width = 10,height = 7,units = "in",res = 600)
-volcano(anot = "wide", ct = "Hepatocytes", dif_col = "Type_S", seu = seu,id1 = "+",id2 = "-")
+volcano(anot = "new_anot", ct = "Hepatocytes", dif_col = "Type_S", seu = seu,id1 = "+",id2 = "-")
 dev.off()
 
 
@@ -629,6 +628,8 @@ genes <- c(
 
 genes <- c("IL32", "IRF3", "IFITM3", "SOD2", "CXCL9", 
                "HLA-DPB1", "CRP", "ACKR4", "ACTA2", "NLRP1")
+
+genes <- c("IL32", "CXCL9")
 ### Density plot
 unique(seu$Type_D)
 
@@ -680,7 +681,7 @@ for (g in genes) {
     y = "y_local_px",
     col_fov = "fov",
     fov = 10,
-    norm = FALSE
+    norm = FALSE, viridis = "D"
   )
   
   print(p)   # ← THIS is required inside a PNG device
@@ -820,3 +821,246 @@ for (g in genes2) {
   
   dev.off()
 }
+
+
+## Final REAL PLOTS 22/01/26 Figure 3D 
+library(ggplot2)
+library(cowplot) # Required to extract the legend separate from the plot
+library(grid)
+
+# --- 1. SETUP & THEMES ---
+
+genes <- c("IL32", "CXCL9")
+out_dir <- "~/SPATIAL/Maria_CosMx/Spatial_liver/figures/outs/"
+
+# Load polygon file once
+poly_data <- read.csv("/home/mmoro/SPATIAL/Maria_CosMx/Maria_v1/Polygons/Slide_2.csv")
+
+# Define a consistent Dark Theme with NO AXIS
+theme_dark_clean <- theme(
+  plot.background = element_rect(fill = "black", color = NA),
+  panel.background = element_rect(fill = "black", color = NA),
+  legend.background = element_rect(fill = "black", color = NA),
+  legend.text = element_text(color = "white"),
+  legend.title = element_text(color = "white"),
+  
+  # REMOVE ALL AXIS ELEMENTS
+  axis.text = element_blank(),
+  axis.title = element_blank(),
+  axis.ticks = element_blank(),
+  axis.line = element_blank(),
+  
+  title = element_text(color = "white"),
+  panel.grid = element_blank()
+)
+
+# --- 2. LOOP THROUGH GENES ---
+
+for (g in genes) {
+  
+  message("Processing ", g)
+  
+  # A. CALCULATE COMMON LIMITS
+  # Identify cells belonging to FOV 10 and 11 to set shared color scale
+  cells_fov10 <- rownames(meta)[meta$fov == 10]
+  cells_fov11 <- rownames(meta)[meta$fov == 11]
+  all_cells <- c(cells_fov10, cells_fov11)
+  
+  # Extract expression data
+  expr_values <- seu@assays$RNA$data[g, all_cells]
+  common_limits <- c(min(expr_values), max(expr_values))
+  
+  
+  # B. CREATE & SAVE LEGEND (Separate Figure)
+  
+  # Create temp plot to extract legend
+  p_temp <- plot.gene.spatial(
+    meta = meta,
+    expression_matrix = as.matrix(seu@assays$RNA$data),
+    genes = g,
+    polygon_file = poly_data,
+    x = "x_local_px", y = "y_local_px",
+    col_fov = "fov", fov = 10, 
+    norm = FALSE, viridis = "D"
+  ) +
+    scale_fill_viridis_c(option = "D", limits = common_limits) +
+    scale_color_viridis_c(option = "D", limits = common_limits) +
+    theme_dark_clean +
+    theme(legend.position = "right")
+  
+  # Extract and Save Legend
+  legend_plot <- get_legend(p_temp)
+  
+  png(filename = paste0(out_dir, g, "_Legend.png"), width = 2, height = 5, units = "in", res = 400)
+  grid.newpage()
+  grid.draw(legend_plot)
+  dev.off()
+  
+  
+  # C. PLOT FOV 10 (Clean, Dark, No Legend)
+  
+  p10 <- plot.gene.spatial(
+    meta = meta,
+    expression_matrix = as.matrix(seu@assays$RNA$data),
+    genes = g,
+    polygon_file = poly_data,
+    x = "x_local_px", y = "y_local_px",
+    col_fov = "fov", fov = 10,
+    norm = FALSE, viridis = "D"
+  ) +
+    scale_fill_viridis_c(option = "D", limits = common_limits) +
+    scale_color_viridis_c(option = "D", limits = common_limits) +
+    theme_dark_clean +
+    theme(legend.position = "none") +
+    labs(x = NULL, y = NULL) # Explicitly remove labels just in case
+  
+  png(filename = paste0(out_dir, g, "_FOV10.png"), width = 7, height = 7, units = "in", res = 400)
+  print(p10)
+  dev.off()
+  
+  
+  # D. PLOT FOV 11 (Clean, Dark, No Legend)
+  
+  p11 <- plot.gene.spatial(
+    meta = meta,
+    expression_matrix = as.matrix(seu@assays$RNA$data),
+    genes = g,
+    polygon_file = poly_data,
+    x = "x_local_px", y = "y_local_px",
+    col_fov = "fov", fov = 11,
+    norm = FALSE, viridis = "D"
+  ) +
+    scale_fill_viridis_c(option = "D", limits = common_limits) +
+    scale_color_viridis_c(option = "D", limits = common_limits) +
+    theme_dark_clean +
+    theme(legend.position = "none") +
+    labs(x = NULL, y = NULL)
+  
+  png(filename = paste0(out_dir, g, "_FOV11.png"), width = 7, height = 7, units = "in", res = 400)
+  print(p11)
+  dev.off()
+}
+
+
+
+## IFI27 & APOA1 slide3 fov 1, fov2
+
+
+## Final REAL PLOTS 22/01/26 Figure 3D 
+library(ggplot2)
+library(cowplot) # Required to extract the legend separate from the plot
+library(grid)
+
+# --- 1. SETUP & THEMES ---
+meta <- seu@meta.data[seu@meta.data$tissue == "Slide_3",]
+genes <- c("IFI27", "SOD2")
+out_dir <- "~/SPATIAL/Maria_CosMx/Spatial_liver/figures/outs/"
+
+# Load polygon file once
+poly_data <- read.csv("/home/mmoro/SPATIAL/Maria_CosMx/Maria_v1/Polygons/Slide_3.csv")
+
+# Define a consistent Dark Theme with NO AXIS
+theme_dark_clean <- theme(
+  plot.background = element_rect(fill = "black", color = NA),
+  panel.background = element_rect(fill = "black", color = NA),
+  legend.background = element_rect(fill = "black", color = NA),
+  legend.text = element_text(color = "white"),
+  legend.title = element_text(color = "white"),
+  
+  # REMOVE ALL AXIS ELEMENTS
+  axis.text = element_blank(),
+  axis.title = element_blank(),
+  axis.ticks = element_blank(),
+  axis.line = element_blank(),
+  
+  title = element_text(color = "white"),
+  panel.grid = element_blank()
+)
+
+# --- 2. LOOP THROUGH GENES ---
+
+for (g in genes) {
+  
+  message("Processing ", g)
+  
+  # A. CALCULATE COMMON LIMITS
+  # Identify cells belonging to FOV 1 and 3 to set shared color scale
+  cells_fov1 <- rownames(meta)[meta$fov == 1]
+  cells_fov3 <- rownames(meta)[meta$fov == 3]
+  all_cells <- c(cells_fov1, cells_fov3)
+  
+  # Extract expression data
+  expr_values <- seu@assays$RNA$data[g, all_cells]
+  common_limits <- c(min(expr_values), max(expr_values))
+  
+  
+  # B. CREATE & SAVE LEGEND (Separate Figure)
+  
+  # Create temp plot to extract legend
+  p_temp <- plot.gene.spatial(
+    meta = meta,
+    expression_matrix = as.matrix(seu@assays$RNA$data),
+    genes = g,
+    polygon_file = poly_data,
+    x = "x_local_px", y = "y_local_px",
+    col_fov = "fov", fov = 1, 
+    norm = FALSE, viridis = "D"
+  ) +
+    scale_fill_viridis_c(option = "D", limits = common_limits) +
+    scale_color_viridis_c(option = "D", limits = common_limits) +
+    theme_dark_clean +
+    theme(legend.position = "right")
+  
+  # Extract and Save Legend
+  legend_plot <- get_legend(p_temp)
+  
+  png(filename = paste0(out_dir, g, "_Legend.png"), width = 2, height = 5, units = "in", res = 400)
+  grid.newpage()
+  grid.draw(legend_plot)
+  dev.off()
+  
+  
+  # C. PLOT FOV 1 (Clean, Dark, No Legend)
+  
+  p1 <- plot.gene.spatial(
+    meta = meta,
+    expression_matrix = as.matrix(seu@assays$RNA$data),
+    genes = g,
+    polygon_file = poly_data,
+    x = "x_local_px", y = "y_local_px",
+    col_fov = "fov", fov = 1,
+    norm = FALSE, viridis = "D"
+  ) +
+    scale_fill_viridis_c(option = "D", limits = common_limits) +
+    scale_color_viridis_c(option = "D", limits = common_limits) +
+    theme_dark_clean +
+    theme(legend.position = "none") +
+    labs(x = NULL, y = NULL) # Explicitly remove labels just in case
+  
+  png(filename = paste0(out_dir, g, "_FOV1.png"), width = 7, height = 7, units = "in", res = 400)
+  print(p1)
+  dev.off()
+  
+  
+  # D. PLOT FOV 3 (Clean, Dark, No Legend)
+  
+  p3 <- plot.gene.spatial(
+    meta = meta,
+    expression_matrix = as.matrix(seu@assays$RNA$data),
+    genes = g,
+    polygon_file = poly_data,
+    x = "x_local_px", y = "y_local_px",
+    col_fov = "fov", fov = 3,
+    norm = FALSE, viridis = "D"
+  ) +
+    scale_fill_viridis_c(option = "D", limits = common_limits) +
+    scale_color_viridis_c(option = "D", limits = common_limits) +
+    theme_dark_clean +
+    theme(legend.position = "none") +
+    labs(x = NULL, y = NULL)
+  
+  png(filename = paste0(out_dir, g, "_FOV3.png"), width = 7, height = 7, units = "in", res = 400)
+  print(p3)
+  dev.off()
+}
+
