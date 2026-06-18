@@ -224,7 +224,6 @@ seu@meta.data$refined <- cell_types[seu@meta.data$refined]
 seu@meta.data$new_anot <- new_anot[seu@meta.data$refined]
 seu@meta.data$grouped_anot <- grouped_anot[seu@meta.data$subset]
 
-
 #Color palettes
 color_palette <- c(
   paletteer_d("ggsci::default_igv"),

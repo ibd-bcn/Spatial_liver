@@ -11,7 +11,6 @@ suppressPackageStartupMessages({
   library(tidyr)
   library(readr)
   library(ggplot2)
-  library(ggrepel)
   library(ggforce)
   library(png)
   library(grid)
@@ -276,7 +275,13 @@ dev.off()
 seu@meta.data$wide <- ifelse(seu@meta.data$subset == "Im_hepatocytes", "Hepatocytes", seu@meta.data$subset)
 
 png(filename = file.path(OUT_DIR, "fig3D_volc_typeD.png"), width = 10, height = 7, units = "in", res = 800)
-print(volcano(anot = "new_anot", ct = "Hepatocytes", dif_col = "Type_D", seu_obj = seu, id1 = "+", id2 = "-")[[1]])
+volcano_res <- volcano(anot = "new_anot", ct = "Hepatocytes", dif_col = "Type_D", seu_obj = seu, id1 = "+", id2 = "-")
+my_plot <- volcano_res[[1]]
+target_genes <- c("IFITM3", "IRF3", "CXCL9", "B2M", "VTN", "APOE", "CD74", 
+                  "IGHG1", "STAT1", "CLU", "RARRES2", "IL32", "SOD2", "CRP", 
+                  "NPR2", "ACKR4")
+my_plot$data$delabel <- ifelse(my_plot$data$genes %in% target_genes, my_plot$data$genes, NA)
+print(my_plot)
 dev.off()
 
 
