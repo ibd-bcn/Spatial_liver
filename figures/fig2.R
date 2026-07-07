@@ -17,6 +17,11 @@ suppressPackageStartupMessages({
   library(clusterProfiler)
   library(msigdbr)
   library(org.Hs.eg.db)
+  library(DOSE)
+  library(grid)
+  library(limma)
+  library(stringr)
+  library(readxl)
 })
 
 options(bitmapType = "cairo")
@@ -71,12 +76,9 @@ refined_col <- c(
   "Cycling_B_lineage_cells"   = "coral",   "Other"                     = "#393939"
 )
 
-# ==============================================================================
-# FIG 2A & 2B (Pending code from Angela)
-# ==============================================================================
 
 # ==============================================================================
-# FIG 2C - Spatial Polygons
+# FIG 2A - Spatial Polygons
 # ==============================================================================
 
 # Helper function to prevent repetitive plotting code
@@ -141,8 +143,594 @@ plot_spatial_fov(file.path(POLY_DIR, "Slide_1.csv"), "Slide_1", 1, meta, "refine
 plot_spatial_fov(file.path(POLY_DIR, "Slide_2.csv"), "Slide_2", 2, meta, "refined_myel", refined_col, file.path(OUT_DIR, "cslide2_fov2_refined_myel.png"))
 
 # ==============================================================================
-# FIG 2D (Pending code from Angela)
+# FIG 2C - scRNAseq HDV-active vs HBV 
 # ==============================================================================
+
+hepatocytes <- readRDS("~/subsets/hepatocytes/harmony_new2/hepatocytes_harmony.RDS")
+
+
+# Differential expression analysis: HDV vs HBV hepatocytes
+
+
+hep <- hepatocytes
+
+Idents(hep) <- "pathology"
+
+table(Idents(hep))
+
+deg_HDV_vs_HBV <- FindMarkers(
+  hep,
+  ident.1 = "HDV",
+  ident.2 = "HBV",
+  logfc.threshold = 0.01
+)
+
+deg_HDV_sig <- deg_HDV_vs_HBV[
+  deg_HDV_vs_HBV$p_val_adj < 0.05 &
+    deg_HDV_vs_HBV$avg_log2FC > 1.2,
+]
+
+deg_HBV_sig <- deg_HDV_vs_HBV[
+  deg_HDV_vs_HBV$p_val_adj < 0.05 &
+    deg_HDV_vs_HBV$avg_log2FC < -1.2,
+]
+
+
+# Convert gene symbols to Entrez IDs 
+
+genes_HDV <- rownames(deg_HDV_sig)
+genes_HBV <- rownames(deg_HBV_sig)
+
+entrez_HDV <- clusterProfiler::bitr(
+  genes_HDV,
+  fromType = "SYMBOL",
+  toType = "ENTREZID",
+  OrgDb = org.Hs.eg.db
+)
+
+entrez_HBV <- clusterProfiler::bitr(
+  genes_HBV,
+  fromType = "SYMBOL",
+  toType = "ENTREZID",
+  OrgDb = org.Hs.eg.db
+)
+
+
+# Selected GO Biological Process terms 
+
+go_ids <- c(
+  "GO:0016032",  # viral process
+  "GO:0019058",  # viral life cycle / viral infectious cycle
+  "GO:0019079",  # viral genome replication
+  "GO:0034612",  # response to TNF
+  "GO:0034341",  # response to type II interferon
+  "GO:0071346",  # cellular response to type II interferon
+  "GO:0006979",  # response to oxidative stress
+  "GO:0006935",  # chemotaxis
+  "GO:0060326",  # cell chemotaxis
+  "GO:0006638",  # triglyceride metabolic process
+  "GO:0019216",  # regulation of lipid metabolic process
+  "GO:0140467",  # integrated stress response signaling
+  "GO:0006457",  # protein folding
+  "GO:0061077",  # chaperone-mediated protein folding
+  "GO:0022604"   # regulation of cell morphogenesis
+)
+
+
+# GO Biological Process enrichment 
+
+ego_HDV <- enrichGO(
+  gene = entrez_HDV$ENTREZID,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENTREZID",
+  ont = "BP",
+  pAdjustMethod = "BH",
+  readable = TRUE
+)
+
+ego_HBV <- enrichGO(
+  gene = entrez_HBV$ENTREZID,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENTREZID",
+  ont = "BP",
+  pAdjustMethod = "BH",
+  readable = TRUE
+)
+
+
+# Format enrichment results 
+
+ego_HDV_df <- as.data.frame(ego_HDV)
+ego_HBV_df <- as.data.frame(ego_HBV)
+
+ego_HDV_df <- ego_HDV_df[
+  ego_HDV_df$ID %in% go_ids,
+]
+
+ego_HBV_df <- ego_HBV_df[
+  ego_HBV_df$ID %in% go_ids,
+]
+
+ego_HDV_df$Comparison <- "Upregulated"
+ego_HBV_df$Comparison <- "Downregulated"
+
+combined <- rbind(
+  ego_HDV_df,
+  ego_HBV_df
+)
+
+combined$EnrichmentScore <- -log10(combined$p.adjust)
+
+
+# Plot pathway enrichment 
+
+final_plot <- ggplot(
+  combined,
+  aes(
+    x = Comparison,
+    y = Description,
+    color = Comparison,
+    size = Count
+  )
+) +
+  geom_point() +
+  scale_size(
+    range = c(4, 10)
+  ) +
+  scale_color_manual(
+    values = c(
+      "Upregulated" = "red",
+      "Downregulated" = "blue"
+    )
+  ) +
+  theme_bw() +
+  labs(
+    title = "",
+    x = "",
+    y = "Pathway description",
+    size = "Gene count",
+    color = "Comparison"
+  ) +
+  theme(
+    axis.text = element_text(size = 15),
+    legend.text = element_text(size = 15),
+    legend.title = element_text(face = "bold", size = 15),
+    axis.line = element_line(linewidth = 1.2, colour = "black"),
+    axis.ticks = element_line(linewidth = 1.2, colour = "black"),
+    axis.ticks.length = unit(6, "pt"),
+    panel.background = element_rect(fill = NA, colour = NA),
+    panel.border = element_rect(
+      colour = "black",
+      fill = NA,
+      linewidth = 1.2
+    )
+  )
+
+
+# Export figure
+
+png(
+  filename = file.path(OUT_DIR, "fig2c.png"),
+  width = 11,
+  height = 8,
+  units = "in",
+  res = 1200
+)
+
+print(final_plot)
+
+dev.off()
+
+
+
+
+# ==============================================================================
+# FIG 2D - nCounter - Venn diagram 
+# ==============================================================================
+# Load NanoString expression matrix
+
+
+ALL_normalized_data_with_clinical_variables_Nanostring <-
+  read_excel(
+    file.path("/path/to/file"
+    )
+  )
+
+df <- ALL_normalized_data_with_clinical_variables_Nanostring
+
+
+# Format expression matrix to the only data we need 
+
+df <- df[1:39, ]
+df <- as.data.frame(df)
+
+colnames(df) <- df[1, ]
+df <- df[2:39, ]
+
+rownames(df) <- df[, 1]
+df <- df[, 2:783]
+
+df <- t(df)
+df <- df[10:782, ]
+
+expr_matrix <- df
+mode(expr_matrix) <- "numeric"
+
+sample_names <- colnames(expr_matrix)
+
+
+# Create sample metadata
+
+
+condition <- ifelse(
+  str_starts(sample_names, "D"), "delta",
+  ifelse(
+    str_starts(sample_names, "C"), "control",
+    ifelse(
+      str_starts(sample_names, "N"), "negative",
+      ifelse(str_starts(sample_names, "B"), "vb", NA)
+    )
+  )
+)
+
+metadata <- data.frame(
+  sample = sample_names,
+  condition = factor(condition)
+)
+
+rownames(metadata) <- metadata$sample
+
+expr_matrix <- expr_matrix[, metadata$sample]
+
+
+# Differential expression: HDV RNA+ vs Control
+
+
+metadata2 <- metadata[
+  metadata$condition %in% c("delta", "control"),
+]
+
+metadata2$condition <- droplevels(metadata2$condition)
+
+expr_matrix2 <- expr_matrix[, metadata2$sample]
+
+design <- model.matrix(~0 + condition, data = metadata2)
+colnames(design) <- levels(metadata2$condition)
+
+fit <- lmFit(expr_matrix2, design)
+
+contrast_matrix <- makeContrasts(
+  delta - control,
+  levels = design
+)
+
+fit2 <- contrasts.fit(fit, contrast_matrix)
+fit2 <- eBayes(fit2)
+
+deg_table <- topTable(
+  fit2,
+  number = Inf,
+  adjust.method = "BY",
+  sort.by = "P"
+)
+
+deg_sig <- deg_table[
+  deg_table$adj.P.Val < 0.05 &
+    abs(deg_table$logFC) > 1,
+]
+
+
+# Differential expression: HDV RNA− vs Control
+
+
+metadata2 <- metadata[
+  metadata$condition %in% c("negative", "control"),
+]
+
+metadata2$condition <- droplevels(metadata2$condition)
+
+expr_matrix2 <- expr_matrix[, metadata2$sample]
+
+design <- model.matrix(~0 + condition, data = metadata2)
+colnames(design) <- levels(metadata2$condition)
+
+fit <- lmFit(expr_matrix2, design)
+
+contrast_matrix <- makeContrasts(
+  negative - control,
+  levels = design
+)
+
+fit2 <- contrasts.fit(fit, contrast_matrix)
+fit2 <- eBayes(fit2)
+
+deg_table <- topTable(
+  fit2,
+  number = Inf,
+  adjust.method = "BY",
+  sort.by = "P"
+)
+
+deg_signeg <- deg_table[
+  deg_table$adj.P.Val < 0.05 &
+    abs(deg_table$logFC) > 1,
+]
+
+
+# Differential expression: HBV vs Control
+
+
+metadata2 <- metadata[
+  metadata$condition %in% c("vb", "control"),
+]
+
+metadata2$condition <- droplevels(metadata2$condition)
+
+expr_matrix2 <- expr_matrix[, metadata2$sample]
+
+design <- model.matrix(~0 + condition, data = metadata2)
+colnames(design) <- levels(metadata2$condition)
+
+fit <- lmFit(expr_matrix2, design)
+
+contrast_matrix <- makeContrasts(
+  vb - control,
+  levels = design
+)
+
+fit2 <- contrasts.fit(fit, contrast_matrix)
+fit2 <- eBayes(fit2)
+
+deg_table <- topTable(
+  fit2,
+  number = Inf,
+  adjust.method = "BY",
+  sort.by = "P"
+)
+
+deg_sigvb <- deg_table[
+  deg_table$adj.P.Val < 0.05 &
+    abs(deg_table$logFC) > 1,
+]
+
+
+# Venn diagram
+
+
+up_delta <- rownames(
+  deg_sig[
+    deg_sig$adj.P.Val < 0.05 &
+      deg_sig$logFC > 1.2,
+  ]
+)
+
+up_neg <- rownames(
+  deg_signeg[
+    deg_signeg$adj.P.Val < 0.05 &
+      deg_signeg$logFC > 1.2,
+  ]
+)
+
+up_vb <- rownames(
+  deg_sigvb[
+    deg_sigvb$adj.P.Val < 0.05 &
+      deg_sigvb$logFC > 1.2,
+  ]
+)
+
+venn_list <- list(
+  "HDV RNA +" = up_delta,
+  "HDV RNA -" = up_neg,
+  "HBV" = up_vb
+)
+
+p <- ggvenn(
+  venn_list,
+  fill_color = c("#fed766", "#D866FE", "#2ab7ca"),
+  stroke_size = 0.5,
+  set_name_size = 5,
+  text_size = 4,
+  show_percentage = FALSE
+)
+
+
+# Export figure
+
+
+png(
+  filename = file.path(OUT_DIR, "fig2d.png"),
+  width = 4,
+  height = 4,
+  units = "in",
+  res = 1200
+)
+
+p
+
+dev.off()
+
+
+# ==============================================================================
+# FIG 2E - nCounter Heatmap 
+# ==============================================================================
+
+# Pathway file
+
+pathway_file <- file.path(
+  "/path/to/file"
+)
+
+
+# Read selected pathways 
+
+lines <- readLines(pathway_file, warn = FALSE)
+lines <- lines[nzchar(trimws(lines))]
+
+parts <- strsplit(lines, "\\s+")
+
+pathways_raw <- do.call(
+  rbind,
+  lapply(parts, function(x) c(x[1], x[2], x[3]))
+)
+
+pathways_raw <- as.data.frame(
+  pathways_raw,
+  stringsAsFactors = FALSE
+)
+
+colnames(pathways_raw) <- c(
+  "Pathway",
+  "GO",
+  "Module"
+)
+
+pathways_raw$Pathway_clean <- pathways_raw$Pathway %>%
+  gsub("^GOBP_", "", .) %>%
+  gsub("_", " ", .)
+
+go_ids <- unique(pathways_raw$GO)
+go_ids <- go_ids[grepl("^GO:", go_ids)]
+
+
+# Get GO:BP genes from MSigDB 
+
+m_bp <- msigdbr(
+  species = "Homo sapiens",
+  category = "C5",
+  subcategory = "GO:BP"
+)
+
+m_bp_sub <- m_bp %>%
+  filter(gs_exact_source %in% go_ids)
+
+go2genes <- split(
+  m_bp_sub$gene_symbol,
+  m_bp_sub$gs_exact_source
+)
+
+pathway2genes <- setNames(
+  lapply(pathways_raw$GO, function(go) unique(go2genes[[go]])),
+  pathways_raw$Pathway_clean
+)
+
+
+# Clean pathways and match to NanoString panel
+
+pathway2genes$`REGULATION OF CYTOPLASMIC PATTERN RECOGNITION RECEPTOR SIGNALING PATHWAY` <- NULL
+
+rownames(expr_matrix) <- gsub(
+  "-mRNA",
+  "",
+  rownames(expr_matrix)
+)
+
+genes_measured <- rownames(expr_matrix)
+
+pathway2genes <- lapply(
+  pathway2genes,
+  intersect,
+  y = genes_measured
+)
+
+pathway_sizes <- sapply(
+  pathway2genes,
+  length
+)
+
+pathway2genes <- pathway2genes[
+  pathway_sizes >= 3
+]
+
+
+# Calculate pathway scores 
+
+expr_z <- t(scale(t(expr_matrix)))
+expr_z[is.na(expr_z)] <- 0
+
+pathway_scores <- vapply(
+  names(pathway2genes),
+  function(pw) {
+    colMeans(
+      expr_z[pathway2genes[[pw]], , drop = FALSE]
+    )
+  },
+  FUN.VALUE = numeric(ncol(expr_z))
+)
+
+pathway_scores <- t(pathway_scores)
+
+pathway_z <- t(scale(t(pathway_scores)))
+pathway_z[is.na(pathway_z)] <- 0
+
+
+# Heatmap annotation 
+
+metadata$condition2 <- recode(
+  metadata$condition,
+  control  = "HC",
+  vb       = "HBV",
+  delta    = "HDV RNA+",
+  negative = "HDV RNA-"
+)
+
+metadata$condition2 <- factor(
+  metadata$condition2,
+  levels = c(
+    "HC",
+    "HBV",
+    "HDV RNA+",
+    "HDV RNA-"
+  )
+)
+
+sample_order <- rownames(metadata)[
+  order(metadata$condition2)
+]
+
+annotation_col <- data.frame(
+  Condition = metadata[sample_order, "condition2"]
+)
+
+rownames(annotation_col) <- sample_order
+
+ann_colors <- list(
+  Condition = c(
+    "HC"       = "#fe4a49",
+    "HBV"      = "#2ab7ca",
+    "HDV RNA+" = "#fed766",
+    "HDV RNA-" = "#D866FE"
+  )
+)
+
+heat_cols <- colorRampPalette(
+  c("#2166ac", "white", "#b2182b")
+)(100)
+
+
+# Export heatmap 
+
+png(
+  filename = file.path(OUT_DIR, "fig2e.png"),
+  width = 8.5,
+  height = 3.5,
+  units = "in",
+  res = 800
+)
+
+pheatmap(
+  pathway_z[, sample_order, drop = FALSE],
+  annotation_col = annotation_col,
+  annotation_colors = ann_colors,
+  cluster_rows = FALSE,
+  cluster_cols = FALSE,
+  color = heat_cols,
+  border_color = NA,
+  fontsize_row = 9,
+  fontsize_col = 7
+)
+
+dev.off()
+
 
 # ==============================================================================
 # FIG 2E - Volcano & Enrichment Analysis

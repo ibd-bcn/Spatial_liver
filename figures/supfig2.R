@@ -161,8 +161,969 @@ volcano <- function(anot = "subset", ct, dif_col = "tissue", seu_obj, id1, id2) 
 }
 
 # ==============================================================================
-# Sup Fig 2A, 2B, 2C (Pending specific code additions)
+# Sup Fig 2A - UMAPS scRNAseq
 # ==============================================================================
+
+# Load Seurat objects
+ALL_SEURAT_PATH         <- "/path/to/seurat_objects/todas.rds"
+MYELOIDS_SEURAT_PATH    <- "/path/to/seurat_objects/myeloids.rds"
+HEPATOCYTES_SEURAT_PATH <- "/path/to/seurat_objects/hepatocytes.rds"
+PLASMAS_SEURAT_PATH     <- "/path/to/seurat_objects/plasmas.rds"
+TCELLS_SEURAT_PATH      <- "/path/to/seurat_objects/tcells.rds"
+PARENQUIMAL_SEURAT_PATH <- "/path/to/seurat_objects/parenquimal.rds"
+
+todas       <- readRDS(ALL_SEURAT_PATH)
+myeloids    <- readRDS(MYELOIDS_SEURAT_PATH)
+hepatocytes <- readRDS(HEPATOCYTES_SEURAT_PATH)
+plasmas     <- readRDS(PLASMAS_SEURAT_PATH)
+tcells      <- readRDS(TCELLS_SEURAT_PATH)
+parenquimal <- readRDS(PARENQUIMAL_SEURAT_PATH)
+
+
+
+# Broad annotation colours.
+wide <- c(
+  hepatocytes     = refined_col[["Hepatocytes"]],
+  myeloids        = refined_col[["KC2"]],
+  plasmas         = refined_col[["Plasma_cells"]],
+  tcells          = refined_col[["Tem_Trm_cytotoxic_T_cells"]],
+  non_parenquimal = refined_col[["Fibroblasts"]]
+)
+
+# Refined annotation colours.
+# Names here match the labels in the annotation metadata.
+refined_col_annot <- c(
+  "Memory B cells"          = refined_col[["Memory_B_cells"]],
+  "pDC"                     = "#7A7A7A",
+  "Plasma cells"            = refined_col[["Plasma_cells"]],
+  "Naive B cells"           = refined_col[["Naive_B_cells"]],
+  "Cycling B lineage cells" = refined_col[["Cycling_B_lineage_cells"]],
+  
+  "NKT cells"               = refined_col[["NKT_cells"]],
+  "Tem cytotoxic T cells"   = refined_col[["Tem_Trm_cytotoxic_T_cells"]],
+  "Rb high"                 = "#6D4C41",
+  "Trm cytotoxic T cells"   = refined_col[["Tem_Trm_cytotoxic_T_cells"]],
+  "Effector helper T cells" = refined_col[["Effector_helper_T_cells"]],
+  "Naive T cells"           = refined_col[["Naive_T_cells"]],
+  "Regulatory T cells"      = refined_col[["Regulatory_T_cells"]],
+  "Cycling T cells"         = "#5E60CE",
+  "Gamma-delta T cells"     = refined_col[["Gamma_delta_T_cells"]],
+  "NK cells"                = refined_col[["NK_cells"]],
+  
+  "Cholangiocytes"          = refined_col[["Cholangiocytes"]],
+  "Hepatocyte 1"            = refined_col[["Hepatocyte_1"]],
+  "Hepatocyte 2"            = refined_col[["Hepatocyte_2"]],
+  "Hepatocyte 5"            = refined_col[["Hepatocyte_5"]],
+  "Hepatocyte 6"            = refined_col[["Hepatocyte_6"]],
+  "Hepatocyte 3"            = refined_col[["Hepatocyte_3"]],
+  "Hepatocyte 4"            = refined_col[["Hepatocyte_4"]],
+  
+  "KC1"                     = refined_col[["KC1"]],
+  "M2-LYVE1"                = refined_col[["M2_LYVE1"]],
+  "DCs CD1C"                = refined_col[["DCs_CD1C"]],
+  "Mast cells"              = "#B56576",
+  "Monocytes"               = refined_col[["Monocytes"]],
+  "Neutrophils"             = "#8C564B",
+  "M1"                      = refined_col[["M1"]],
+  "KC2"                     = refined_col[["KC2"]],
+  
+  "Fibroblasts"             = refined_col[["Fibroblasts"]],
+  "Endothelial cells 1"     = refined_col[["Endothelial_cells_1"]],
+  "Endothelial cells 2"     = refined_col[["Endothelial_cells_2"]],
+  "Endothelial cells 4"     = refined_col[["Endothelial_cells_4"]],
+  "Smooth muscle cells"     = refined_col[["Smooth_muscle_cells"]],
+  "Endothelial cells 3"     = refined_col[["Endothelial_cells_3"]],
+  "Schwann cells"           = "#2A9D8F"
+)
+
+
+# ------------------------------------------------------------------------------
+# All cells UMAP
+# ------------------------------------------------------------------------------
+
+p <- DimPlot(
+  todas,
+  reduction = "umap",
+  group.by = "subset",
+  cols = wide,
+  label = FALSE,
+  repel = TRUE
+) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+png(
+  filename = file.path(OUT_DIR, "todas_umap.png"),
+  width = 8,
+  height = 8,
+  units = "in",
+  res = 1200
+)
+p
+dev.off()
+
+
+# ------------------------------------------------------------------------------
+# Myeloids UMAP
+# ------------------------------------------------------------------------------
+
+p <- DimPlot(
+  myeloids,
+  reduction = "umap",
+  group.by = "annotation",
+  cols = refined_col_annot,
+  label = FALSE
+) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+png(
+  filename = file.path(OUT_DIR, "myeloids_umap.png"),
+  width = 8,
+  height = 8,
+  units = "in",
+  res = 1200
+)
+p
+dev.off()
+
+
+# ------------------------------------------------------------------------------
+# Hepatocytes UMAP
+# ------------------------------------------------------------------------------
+
+p <- DimPlot(
+  hepatocytes,
+  reduction = "umap",
+  group.by = "annotation",
+  cols = refined_col_annot,
+  label = FALSE
+) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+png(
+  filename = file.path(OUT_DIR, "hepatocytes_umap.png"),
+  width = 8,
+  height = 8,
+  units = "in",
+  res = 1200
+)
+p
+dev.off()
+
+
+# ------------------------------------------------------------------------------
+# Plasma cells UMAP
+# ------------------------------------------------------------------------------
+
+p <- DimPlot(
+  plasmas,
+  reduction = "umap",
+  group.by = "annotation",
+  cols = refined_col_annot,
+  label = FALSE
+) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+png(
+  filename = file.path(OUT_DIR, "plasmas_umap.png"),
+  width = 8,
+  height = 8,
+  units = "in",
+  res = 1200
+)
+p
+dev.off()
+
+
+# ------------------------------------------------------------------------------
+# T cells UMAP
+# ------------------------------------------------------------------------------
+
+p <- DimPlot(
+  tcells,
+  reduction = "umap",
+  group.by = "annotation",
+  cols = refined_col_annot,
+  label = FALSE
+) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+png(
+  filename = file.path(OUT_DIR, "tcells_umap.png"),
+  width = 8,
+  height = 8,
+  units = "in",
+  res = 1200
+)
+p
+dev.off()
+
+
+# ------------------------------------------------------------------------------
+# parenchymal cells UMAP
+# ------------------------------------------------------------------------------
+
+p <- DimPlot(
+  parenquimal,
+  reduction = "umap",
+  group.by = "annotation",
+  cols = refined_col_annot,
+  label = FALSE
+) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+png(
+  filename = file.path(OUT_DIR, "parenquimal_umap.png"),
+  width = 8,
+  height = 8,
+  units = "in",
+  res = 1200
+)
+p
+dev.off()
+
+
+# ==============================================================================
+# Sup Fig 2B - Barplots scRNAseq
+# ==============================================================================
+
+
+# Input paths
+ALL_SEURAT_PATH         <- "/path/to/seurat_objects/todas.rds"
+MYELOIDS_SEURAT_PATH    <- "/path/to/seurat_objects/myeloids.rds"
+HEPATOCYTES_SEURAT_PATH <- "/path/to/seurat_objects/hepatocytes.rds"
+
+# Load objects
+todas       <- readRDS(ALL_SEURAT_PATH)
+myeloids    <- readRDS(MYELOIDS_SEURAT_PATH)
+hepatocytes <- readRDS(HEPATOCYTES_SEURAT_PATH)
+
+
+
+# Hepatocyte subset composition by pathology
+
+
+the_data <- hepatocytes
+
+metadata <- the_data@meta.data
+
+meta <- metadata[, c("pathology", "subset", "sample")]
+
+meta$pathology <- factor(
+  meta$pathology,
+  levels = c("HC", "HBV", "HDV")
+)
+
+meta_2 <- meta %>%
+  dplyr::group_by(pathology, subset, sample) %>%
+  dplyr::count()
+
+meta_3 <- meta %>%
+  dplyr::group_by(subset) %>%
+  dplyr::count()
+
+# Aggregate data to get total counts per subset by pathology
+meta_aggregated <- meta_2 %>%
+  dplyr::group_by(pathology, subset) %>%
+  dplyr::summarise(
+    total_count = sum(n),
+    .groups = "drop"
+  )
+
+# Bar plot with a single segment per subset within each pathology
+p <- ggplot(
+  meta_aggregated,
+  aes(
+    x = pathology,
+    y = total_count,
+    fill = subset
+  )
+) +
+  geom_bar(
+    stat = "identity",
+    position = "fill",
+    color = "black",
+    linewidth = 0.5
+  ) +
+  theme_classic() +
+  scale_fill_manual(
+    values = wide
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 90)
+  ) +
+  labs(
+    x = "Pathology",
+    y = "Proportion",
+    fill = "Subset"
+  ) +
+  ggtitle("") +
+  RotatedAxis()
+
+png(
+  filename = file.path(OUT_DIR, "todas_barplot.png"),
+  width = 8,
+  height = 8,
+  units = "in",
+  res = 1200
+)
+
+p
+
+dev.off()
+
+
+# Hepatocyte annotation composition by pathology
+
+
+the_data <- hepatocytes
+
+metadata <- the_data@meta.data
+
+meta <- metadata[, c("pathology", "annotation", "sample")]
+
+meta$pathology <- factor(
+  meta$pathology,
+  levels = c("HC", "HBV", "HDV")
+)
+
+meta_2 <- meta %>%
+  dplyr::group_by(pathology, annotation, sample) %>%
+  dplyr::count()
+
+meta_3 <- meta %>%
+  dplyr::group_by(annotation) %>%
+  dplyr::count()
+
+# Aggregate data to get total counts per annotation by pathology
+meta_aggregated <- meta_2 %>%
+  dplyr::group_by(pathology, annotation) %>%
+  dplyr::summarise(
+    total_count = sum(n),
+    .groups = "drop"
+  )
+
+# Bar plot with a single segment per annotation within each pathology
+p <- ggplot(
+  meta_aggregated,
+  aes(
+    x = pathology,
+    y = total_count,
+    fill = annotation
+  )
+) +
+  geom_bar(
+    stat = "identity",
+    position = "fill",
+    color = "black"
+  ) +
+  theme_classic() +
+  scale_fill_manual(
+    values = refined_col_annot
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 90)
+  ) +
+  labs(
+    x = "Pathology",
+    y = "Proportion",
+    fill = "Annotation"
+  ) +
+  ggtitle("") +
+  RotatedAxis()
+
+png(
+  filename = file.path(OUT_DIR, "hepato_barplot.png"),
+  width = 8,
+  height = 8,
+  units = "in",
+  res = 800
+)
+
+p
+
+dev.off()
+
+
+# Myeloid annotation composition by pathology
+
+
+the_data <- myeloids
+
+metadata <- the_data@meta.data
+
+meta <- metadata[, c("pathology", "annotation", "sample")]
+
+meta$pathology <- factor(
+  meta$pathology,
+  levels = c("HC", "HBV", "HDV")
+)
+
+meta_2 <- meta %>%
+  dplyr::group_by(pathology, annotation, sample) %>%
+  dplyr::count()
+
+meta_3 <- meta %>%
+  dplyr::group_by(annotation) %>%
+  dplyr::count()
+
+# Aggregate data to get total counts per annotation by pathology
+meta_aggregated <- meta_2 %>%
+  dplyr::group_by(pathology, annotation) %>%
+  dplyr::summarise(
+    total_count = sum(n),
+    .groups = "drop"
+  )
+
+# Bar plot with a single segment per annotation within each pathology
+p <- ggplot(
+  meta_aggregated,
+  aes(
+    x = pathology,
+    y = total_count,
+    fill = annotation
+  )
+) +
+  geom_bar(
+    stat = "identity",
+    position = "fill",
+    color = "black"
+  ) +
+  theme_classic() +
+  scale_fill_manual(
+    values = refined_col_annot
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 90)
+  ) +
+  labs(
+    x = "Pathology",
+    y = "Proportion",
+    fill = "Annotation"
+  ) +
+  ggtitle("") +
+  RotatedAxis()
+
+png(
+  filename = file.path(OUT_DIR, "myeloids_barplot.png"),
+  width = 8,
+  height = 8,
+  units = "in",
+  res = 800
+)
+
+p
+
+dev.off()
+
+
+# Broad subset composition by pathology
+
+
+the_data <- todas
+
+metadata <- the_data@meta.data
+
+meta <- metadata[, c("pathology", "subset", "sample")]
+
+meta$pathology <- factor(
+  meta$pathology,
+  levels = c("HC", "HBV", "HDV")
+)
+
+meta_2 <- meta %>%
+  dplyr::group_by(pathology, subset, sample) %>%
+  dplyr::count()
+
+meta_3 <- meta %>%
+  dplyr::group_by(subset) %>%
+  dplyr::count()
+
+# Aggregate data to get total counts per subset by pathology
+meta_aggregated <- meta_2 %>%
+  dplyr::group_by(pathology, subset) %>%
+  dplyr::summarise(
+    total_count = sum(n),
+    .groups = "drop"
+  )
+
+# Bar plot with a single segment per subset within each pathology
+p <- ggplot(
+  meta_aggregated,
+  aes(
+    x = pathology,
+    y = total_count,
+    fill = subset
+  )
+) +
+  geom_bar(
+    stat = "identity",
+    position = "fill",
+    color = "black"
+  ) +
+  theme_classic() +
+  scale_fill_manual(
+    values = wide
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 90)
+  ) +
+  labs(
+    x = "Pathology",
+    y = "Proportion",
+    fill = "Subset"
+  ) +
+  ggtitle("") +
+  RotatedAxis()
+
+png(
+  filename = file.path(OUT_DIR, "wide_barplot.png"),
+  width = 8,
+  height = 8,
+  units = "in",
+  res = 800
+)
+
+p
+
+dev.off()
+
+
+
+# ==============================================================================
+# Sup Fig 2D - Volcano plots
+# ==============================================================================
+
+# SCRNAseq volcano
+
+message("Loading hepatocyte Seurat object for volcano plot...")
+
+# Input path
+HEPATOCYTES_SEURAT_PATH <- "/path/to/seurat_objects/hepatocytes.rds"
+
+# Load object
+hepatocytes <- readRDS(HEPATOCYTES_SEURAT_PATH)
+
+
+# ------------------------------------------------------------------------------
+# Volcano plot
+# ------------------------------------------------------------------------------
+
+library(Seurat)
+library(ggplot2)
+library(ggrepel)
+library(grid)
+
+# =========================
+# DEG analysis
+# =========================
+
+hep <- hepatocytes
+
+Idents(hep) <- "pathology"
+table(Idents(hep))
+
+deg_HDV_vs_HBV <- FindMarkers(
+  hep,
+  ident.1 = "HDV",
+  ident.2 = "HBV",
+  logfc.threshold = 0.01
+)
+
+deg_results <- deg_HDV_vs_HBV
+deg_results$gene <- rownames(deg_results)
+
+# Avoid p_val = 0
+deg_results$p_val <- ifelse(
+  deg_results$p_val < 1e-300,
+  1e-300,
+  deg_results$p_val
+)
+
+# =========================
+# Genes to label
+# =========================
+
+genes_of_interest <- c(
+  "IL32", "SOD1", "GAPDH", "IFITM2", "IFITM3", "APOO",
+  "HLA-F", "CD74", "SERPINA1", "NOTEN1", "PTEN", "NEAT1", "RORA"
+)
+
+# =========================
+# DEG categories
+# =========================
+
+deg_results$sign <- "0"
+
+deg_results$sign[
+  deg_results$avg_log2FC > log2(1.2) &
+    deg_results$p_val < 0.05
+] <- "UP"
+
+deg_results$sign[
+  deg_results$avg_log2FC < -log2(1.2) &
+    deg_results$p_val < 0.05
+] <- "DW"
+
+deg_results$sign[
+  deg_results$avg_log2FC > log2(1.2) &
+    deg_results$p_val_adj < 0.05
+] <- "UPP"
+
+deg_results$sign[
+  deg_results$avg_log2FC < -log2(1.2) &
+    deg_results$p_val_adj < 0.05
+] <- "DWW"
+
+deg_results$sign <- factor(
+  deg_results$sign,
+  levels = c("UPP", "UP", "0", "DW", "DWW")
+)
+
+# =========================
+# Selected genes only
+# =========================
+
+label_data <- deg_results[deg_results$gene %in% genes_of_interest, ]
+
+data_up <- label_data[label_data$avg_log2FC >= 0, ]
+data_dw <- label_data[label_data$avg_log2FC < 0, ]
+
+# =========================
+# Colours
+# =========================
+
+colors_volcano <- c(
+  "UPP" = "#803800",
+  "DWW" = "#003F54",
+  "UP"  = "#B47846",
+  "DW"  = "steelblue"
+)
+
+# =========================
+# Plot
+# =========================
+
+p <- ggplot(
+  deg_results,
+  aes(
+    x = avg_log2FC,
+    y = -log10(p_val),
+    col = sign
+  )
+) +
+  geom_point(size = 1) +
+  scale_color_manual(values = colors_volcano) +
+  theme_classic() +
+  theme(
+    text = element_text(family = "Helvetica", size = 18),
+    legend.position = "none",
+    plot.title = element_text(face = "bold"),
+    axis.line = element_line(linewidth = 0.5),
+    axis.ticks.length = unit(0.1, "cm")
+  ) +
+  geom_vline(
+    xintercept = c(-log2(1.2), log2(1.2)),
+    col = "black",
+    linetype = "dashed"
+  ) +
+  geom_hline(
+    yintercept = -log10(0.05),
+    col = "black",
+    linetype = "dashed"
+  ) +
+  ggtitle("Hepatocytes: HDV vs HBV") +
+  xlab("avg_log2FC") +
+  ylab("-log10(p_val)") +
+  
+  # Highlight selected up genes
+  geom_point(
+    data = data_up,
+    shape = 21,
+    color = "black",
+    fill = "#911704",
+    size = 3,
+    stroke = 0.4
+  ) +
+  
+  # Highlight selected down genes
+  geom_point(
+    data = data_dw,
+    shape = 21,
+    color = "black",
+    fill = "#376D38",
+    size = 3,
+    stroke = 0.4
+  ) +
+  
+  # Labels for down genes
+  geom_label_repel(
+    data = data_dw,
+    aes(label = gene),
+    size = 9 / .pt,
+    fontface = "bold",
+    color = "black",
+    fill = "white",
+    segment.color = "black",
+    box.padding = 0.35,
+    point.padding = 0.2,
+    force = 2,
+    max.overlaps = Inf,
+    min.segment.length = 0
+  ) +
+  
+  # Labels for up genes
+  geom_label_repel(
+    data = data_up,
+    aes(label = gene),
+    size = 9 / .pt,
+    fontface = "bold",
+    color = "black",
+    fill = "white",
+    segment.color = "black",
+    box.padding = 0.35,
+    point.padding = 0.2,
+    force = 2,
+    max.overlaps = Inf,
+    min.segment.length = 0
+  )
+
+p
+
+png(
+  filename = file.path(OUT_DIR, "volcano_hepatocytes.png"),
+  width = 10,
+  height = 10,
+  units = "in",
+  res = 1200
+)
+
+p
+
+dev.off()
+
+# ==============================================================================
+# Sup Fig 2E - Hepatocyte pathways scRNAseq
+# ==============================================================================
+message("Loading hepatocyte Seurat object for GO enrichment plot...")
+
+# Input path
+HEPATOCYTES_SEURAT_PATH <- "/path/to/seurat_objects/hepatocytes.rds"
+
+# Load object
+hepatocytes <- readRDS(HEPATOCYTES_SEURAT_PATH)
+
+
+# ------------------------------------------------------------------------------
+# DEG analysis
+# ------------------------------------------------------------------------------
+
+library(Seurat)
+library(clusterProfiler)
+library(org.Hs.eg.db)
+library(ggplot2)
+
+hep <- hepatocytes
+
+Idents(hep) <- "pathology"
+table(Idents(hep))
+
+deg_HDV_vs_HC <- FindMarkers(
+  hep,
+  ident.1 = "HDV",
+  ident.2 = "HC",
+  logfc.threshold = 0.01,
+  pos.only = TRUE
+)
+
+deg_HBV_vs_HC <- FindMarkers(
+  hep,
+  ident.1 = "HBV",
+  ident.2 = "HC",
+  logfc.threshold = 0.01,
+  pos.only = TRUE
+)
+
+deg_HDV_sig <- deg_HDV_vs_HC[deg_HDV_vs_HC$p_val_adj < 0.05, ]
+deg_HBV_sig <- deg_HBV_vs_HC[deg_HBV_vs_HC$p_val_adj < 0.05, ]
+
+
+# ------------------------------------------------------------------------------
+# Gene lists
+# ------------------------------------------------------------------------------
+
+genes_HDV <- rownames(deg_HDV_sig)
+genes_HBV <- rownames(deg_HBV_sig)
+
+
+# ------------------------------------------------------------------------------
+# Convert gene symbols to Entrez IDs
+# ------------------------------------------------------------------------------
+
+entrez_HDV <- clusterProfiler::bitr(
+  genes_HDV,
+  fromType = "SYMBOL",
+  toType = "ENTREZID",
+  OrgDb = org.Hs.eg.db
+)
+
+entrez_HBV <- clusterProfiler::bitr(
+  genes_HBV,
+  fromType = "SYMBOL",
+  toType = "ENTREZID",
+  OrgDb = org.Hs.eg.db
+)
+
+
+# ------------------------------------------------------------------------------
+# GO terms of interest
+# ------------------------------------------------------------------------------
+
+go_ids <- c(
+  "GO:0016032",
+  "GO:0009615",
+  "GO:0019058",
+  "GO:0140888",
+  "GO:0034340",
+  "GO:0034341",
+  "GO:0034342",
+  "GO:0032635",
+  "GO:0070102",
+  "GO:0019882",
+  "GO:0042110",
+  "GO:0001816",
+  "GO:0042116",
+  "GO:0070371",
+  "GO:0044839",
+  "GO:0034612",
+  "GO:0001837",
+  "GO:0070482",
+  "GO:0006979",
+  "GO:0007160",
+  "GO:0098609",
+  "GO:0048771",
+  "GO:0042246",
+  "GO:0006111",
+  "GO:0006805"
+)
+
+
+# ------------------------------------------------------------------------------
+# GO enrichment
+# ------------------------------------------------------------------------------
+
+ego_HDV <- enrichGO(
+  gene = entrez_HDV$ENTREZID,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENTREZID",
+  ont = "BP",
+  pAdjustMethod = "BH",
+  readable = TRUE
+)
+
+ego_HBV <- enrichGO(
+  gene = entrez_HBV$ENTREZID,
+  OrgDb = org.Hs.eg.db,
+  keyType = "ENTREZID",
+  ont = "BP",
+  pAdjustMethod = "BH",
+  readable = TRUE
+)
+
+
+# ------------------------------------------------------------------------------
+# Prepare data for plotting
+# ------------------------------------------------------------------------------
+
+ego_HDV_df <- as.data.frame(ego_HDV)
+ego_HBV_df <- as.data.frame(ego_HBV)
+
+ego_HDV_df <- ego_HDV_df[ego_HDV_df$ID %in% go_ids, ]
+ego_HBV_df <- ego_HBV_df[ego_HBV_df$ID %in% go_ids, ]
+
+ego_HDV_df$Comparison <- "HDV vs HC"
+ego_HBV_df$Comparison <- "HBV vs HC"
+
+combined <- rbind(ego_HDV_df, ego_HBV_df)
+combined$EnrichmentScore <- -log10(combined$p.adjust)
+
+
+# ------------------------------------------------------------------------------
+# Plot
+# ------------------------------------------------------------------------------
+
+p <- ggplot(
+  combined,
+  aes(
+    x = Comparison,
+    y = Description,
+    color = EnrichmentScore,
+    size = Count
+  )
+) +
+  geom_point() +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme_bw() +
+  labs(
+    color = "-log10(adj p)",
+    size = "Gene Count"
+  ) +
+  theme(
+    axis.text.y = element_text(size = 10)
+  )
+
+p
+
+png(
+  filename = file.path(OUT_DIR, "enrichment.png"),
+  width = 10,
+  height = 12,
+  units = "in",
+  res = 1200
+)
+
+p
+
+dev.off()
+
+
+
+
 
 # ==============================================================================
 # Sup Fig 2D - Stacked Bar Plots
