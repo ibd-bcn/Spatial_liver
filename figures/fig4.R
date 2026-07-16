@@ -27,6 +27,8 @@ options(bitmapType = "cairo")
 SEURAT_PATH  <- "/path/to/Objects/seurats_annotated.RDS"
 SCOTIA_PATH  <- "/path/to/SCOTIA/Results/all_int.csv"
 COOCCUR_PATH <- "/path/to/Celltype_enrichment/enrichment_files/all.csv"
+LIANA_DIR    <- "/path/to/liana"
+TENSOR_FILE  <- "/path/to/tensor.pkl"
 
 # Output Paths (Relative to the repository root)
 OUT_DIR <- "figures/outs/"
@@ -63,34 +65,24 @@ refined_col <- c(
 )
 
 etiology_colors <- c("HC" = "#fe4a49", "HBV" = "#2ab7ca", "HDV RNA+" = "#fed766")
+health_order <- c("HC", "HBV", "HDV")
 
 # ==============================================================================
 # Figure 4A: Chord plot hepatocytes per health 
 # ==============================================================================
 
-LIANA_DIR <- "path/to/folder"
-
-
 # Read LIANA results 
-
 liana_res_hdv <- read_excel(file.path(LIANA_DIR, "liana_res_hdv.xlsx"))
 liana_res_hbv <- read_excel(file.path(LIANA_DIR, "liana_res_hbv.xlsx"))
 liana_res_hc  <- read_excel(file.path(LIANA_DIR, "liana_res_hc.xlsx"))
-
 
 liana_res_hdv$disease <- "HDV"
 liana_res_hbv$disease <- "HBV"
 liana_res_hc$disease  <- "HC"
 
-liana_all <- bind_rows(
-  liana_res_hc,
-  liana_res_hbv,
-  liana_res_hdv
-)
-
+liana_all <- bind_rows(liana_res_hc, liana_res_hbv, liana_res_hdv)
 
 # Column names 
-
 source_col   <- "source"
 target_col   <- "target"
 ligand_col   <- "ligand_complex"
@@ -98,47 +90,19 @@ receptor_col <- "receptor_complex"
 pval_col     <- "cellphone_pvals"
 score_col    <- "magnitude_rank"
 
-required_cols <- c(
-  source_col,
-  target_col,
-  ligand_col,
-  receptor_col,
-  pval_col,
-  score_col,
-  "disease"
-)
-
-missing_cols <- setdiff(
-  required_cols,
-  colnames(liana_all)
-)
+required_cols <- c(source_col, target_col, ligand_col, receptor_col, pval_col, score_col, "disease")
+missing_cols <- setdiff(required_cols, colnames(liana_all))
 
 if (length(missing_cols) > 0) {
-  stop(
-    "Missing columns in liana_all: ",
-    paste(missing_cols, collapse = ", ")
-  )
+  stop("Missing columns in liana_all: ", paste(missing_cols, collapse = ", "))
 }
 
-
 # Collapse hepatocyte subtypes 
-
-hepatocyte_labels <- c(
-  "Hepatocyte 1",
-  "Hepatocyte 2",
-  "Hepatocyte 3",
-  "Hepatocyte 4",
-  "Hepatocyte 5",
-  "Hepatocyte 6",
-  "Hepatocytes"
-)
+hepatocyte_labels <- c("Hepatocyte 1", "Hepatocyte 2", "Hepatocyte 3", 
+                       "Hepatocyte 4", "Hepatocyte 5", "Hepatocyte 6", "Hepatocytes")
 
 collapse_hepatocytes <- function(x) {
-  ifelse(
-    x %in% hepatocyte_labels,
-    "Hepatocytes",
-    x
-  )
+  ifelse(x %in% hepatocyte_labels, "Hepatocytes", x)
 }
 
 liana2 <- liana_all %>%
@@ -151,255 +115,109 @@ liana2 <- liana_all %>%
     score    = as.numeric(.data[[score_col]])
   )
 
-
-# Keep only hepatocyte outgoing interactions 
-
-
-hep_int <- liana2 %>%
-  filter(source2 == "Hepatocytes")
-
-
-# Filter significant interactions 
-
-hep_sig <- hep_int %>%
-  filter(
-    !is.na(pval),
-    pval < 0.05
-  )
-
-# Build LR pair and interaction type 
-
-hep_sig <- hep_sig %>%
+# Keep only hepatocyte outgoing significant interactions 
+hep_sig <- liana2 %>%
+  filter(source2 == "Hepatocytes" & !is.na(pval) & pval < 0.05) %>%
   mutate(
     lr_pair = paste(ligand, receptor, sep = " - "),
-    interaction_type = ifelse(
-      target2 == "Hepatocytes",
-      "Hepatocytes -> Hepatocytes",
-      "Hepatocytes -> partner"
-    ),
+    interaction_type = ifelse(target2 == "Hepatocytes", "Hepatocytes -> Hepatocytes", "Hepatocytes -> partner"),
     partner = target2
   )
 
-
 top_n_lr <- 100
-
 top_lr <- hep_sig %>%
   group_by(disease) %>%
-  slice_min(
-    order_by = score,
-    n = top_n_lr,
-    with_ties = FALSE
-  ) %>%
+  slice_min(order_by = score, n = top_n_lr, with_ties = FALSE) %>%
   ungroup()
 
 cat("\nTop outgoing hepatocyte LR interactions per disease:\n")
 print(table(top_lr$disease))
 
-top_lr %>%
-  dplyr::select(
-    disease,
-    source2,
-    target2,
-    partner,
-    lr_pair,
-    pval,
-    score,
-    interaction_type
-  ) %>%
-  arrange(disease, score) %>%
-  print(n = 100)
-
-
 all_ann_colors <- refined_col 
 
 get_plot_colors <- function(labels) {
-  
-  missing <- setdiff(
-    labels,
-    names(all_ann_colors)
-  )
-  
+  missing <- setdiff(labels, names(all_ann_colors))
   if (length(missing) > 0) {
-    extra_cols <- rep(
-      "#BDBDBD",
-      length(missing)
-    )
+    extra_cols <- rep("#BDBDBD", length(missing))
     names(extra_cols) <- missing
-    
-    c(
-      all_ann_colors,
-      extra_cols
-    )
+    c(all_ann_colors, extra_cols)
   } else {
     all_ann_colors
   }
 }
 
-
-# Summarise for chord plot
-
-chord_df <- top_lr %>%
-  count(
-    disease,
-    source2,
-    target2,
-    name = "weight"
-  )
-
-print(chord_df)
-
+# Summarize for chord plot
+chord_df <- top_lr %>% count(disease, source2, target2, name = "weight")
 
 # Chord plot function 
-
 plot_hep_chord <- function(df_sub, disease_name, color_map) {
-  
   if (nrow(df_sub) == 0) {
     plot.new()
-    title(
-      main = paste0(disease_name, " (no interactions)")
-    )
+    title(main = paste0(disease_name, " (no interactions)"))
     return(invisible(NULL))
   }
   
-  sectors <- unique(
-    c(
-      df_sub$source2,
-      df_sub$target2
-    )
-  )
-  
-  sectors <- c(
-    "Hepatocytes",
-    setdiff(sectors, "Hepatocytes")
-  )
-  
+  sectors <- unique(c(df_sub$source2, df_sub$target2))
+  sectors <- c("Hepatocytes", setdiff(sectors, "Hepatocytes"))
   plot_cols <- get_plot_colors(sectors)
   
   circos.clear()
-  
-  circos.par(
-    start.degree = 90,
-    gap.degree = 6,
-    track.margin = c(0.01, 0.01),
-    cell.padding = c(0, 0, 0, 0)
-  )
+  circos.par(start.degree = 90, gap.degree = 6, track.margin = c(0.01, 0.01), cell.padding = c(0, 0, 0, 0))
   
   chordDiagram(
     x = df_sub[, c("source2", "target2", "weight")],
-    order = sectors,
-    grid.col = plot_cols[sectors],
-    transparency = 0.25,
-    directional = 1,
-    direction.type = c("arrows"),
-    link.arr.type = "big.arrow",
-    annotationTrack = "grid",
-    preAllocateTracks = list(
-      track.height = 0.12
-    )
+    order = sectors, grid.col = plot_cols[sectors], transparency = 0.25,
+    directional = 1, direction.type = c("arrows"), link.arr.type = "big.arrow",
+    annotationTrack = "grid", preAllocateTracks = list(track.height = 0.12)
   )
   
   circos.trackPlotRegion(
-    track.index = 1,
-    panel.fun = function(x, y) {
-      
+    track.index = 1, panel.fun = function(x, y) {
       sector_name <- get.cell.meta.data("sector.index")
       xlim <- get.cell.meta.data("xlim")
       ylim <- get.cell.meta.data("ylim")
-      
-      circos.text(
-        x = mean(xlim),
-        y = ylim[1] + 0.1,
-        labels = sector_name,
-        facing = "clockwise",
-        niceFacing = TRUE,
-        adj = c(0, 0.5),
-        cex = 0.8
-      )
-    },
-    bg.border = NA
+      circos.text(x = mean(xlim), y = ylim[1] + 0.1, labels = sector_name,
+                  facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5), cex = 0.8)
+    }, bg.border = NA
   )
   
-  title(
-    main = disease_name,
-    cex.main = 1.25
-  )
+  title(main = disease_name, cex.main = 1.25)
 }
-
 
 # Export chord plot 
-
-png(
-  filename = file.path(
-    OUT_DIR,
-    "fig4a.png"
-  ),
-  width = 18,
-  height = 6,
-  units = "in",
-  res = 1200
-)
-
-par(
-  mfrow = c(1, 3),
-  mar = c(1, 1, 4, 1),
-  oma = c(0, 0, 3, 0)
-)
+png(filename = file.path(OUT_DIR, "fig4a.png"), width = 18, height = 6, units = "in", res = 1200)
+par(mfrow = c(1, 3), mar = c(1, 1, 4, 1), oma = c(0, 0, 3, 0))
 
 for (d in c("HC", "HBV", "HDV")) {
-  
-  df_sub <- chord_df %>%
-    filter(disease == d)
-  
-  plot_hep_chord(
-    df_sub,
-    d,
-    all_ann_colors
-  )
+  df_sub <- chord_df %>% filter(disease == d)
+  plot_hep_chord(df_sub, d, all_ann_colors)
 }
 
-mtext(
-  "Hepatocyte as sender: top 100 interactions across etiologies",
-  outer = TRUE,
-  side = 3,
-  line = 0,
-  cex = 1.5,
-  font = 2
-)
-
+mtext("Hepatocyte as sender: top 100 interactions across etiologies", outer = TRUE, side = 3, line = 0, cex = 1.5, font = 2)
 circos.clear()
-
 dev.off()
 
 # ==============================================================================
-# Figure 4B: FACTOR 5 
+# Figure 4B: FACTOR 5 (cell2cell Tensor Analysis)
 # ==============================================================================
-
-
-
-# Input Path
-TENSOR_FILE <- "/path/to/tensor.pkl"
-
 
 message("Loading cell2cell tensor and plotting Factor 5 sender-receiver loadings...")
 
 py$TENSOR_FILE <- TENSOR_FILE
 py$OUT_FILE <- file.path(OUT_DIR, "fig4B_cell2cell_factor5_loadings.pdf")
 
-py_run_string("
+py_run_string(r"(
 import pickle
 import matplotlib.pyplot as plt
 import cell2cell as c2c
 
-
 with open(TENSOR_FILE, 'rb') as f:
     tensor = pickle.load(f)
-
 
 # Select factor to plot
 selected_factor = 'Factor 5'
 
-# get loadings
-
+# Get loadings
 loading_product = c2c.analysis.tensor_downstream.get_joint_loadings(
     tensor.factors,
     dim1='Sender Cells',
@@ -407,14 +225,13 @@ loading_product = c2c.analysis.tensor_downstream.get_joint_loadings(
     factor=selected_factor
 )
 
-# renaming cell type
+# Renaming cell type
 loading_product = loading_product.rename(
     index={'Smooth muscle cells': 'Hepatic stellate cells'},
     columns={'Smooth muscle cells': 'Hepatic stellate cells'}
 )
 
-# plotting
-
+# Plotting Clustermap
 lprod_cm = c2c.plotting.loading_clustermap(
     loadings=loading_product.T,   # Remove .T if you want the opposite orientation
     use_zscore=False,
@@ -422,18 +239,12 @@ lprod_cm = c2c.plotting.loading_clustermap(
     filename=OUT_FILE,
     cbar_label='Loading Product'
 )
-
 plt.close('all')
-
 print(f'Saved Factor 5 sender-receiver loading clustermap to: {OUT_FILE}')
-")
+)")
 
-
-# right panel
-
-
+# Right panel (Context Loadings)
 py_run_string(r"(
-
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -455,8 +266,6 @@ palette = {
 # -----------------------
 # Context loadings
 # -----------------------
-
-# Context loadings: (18, 5)
 context_loadings = tensor.factors['Contexts']
 
 try:
@@ -474,744 +283,182 @@ assert len(contexts) == context_loadings.shape[0], (
     "Provide the correct ordered context list."
 )
 
-
 df = pd.DataFrame({
     "Context": contexts,
     "Group": [metadict[c] for c in contexts],
     "Loading": context_loadings[:, factor_idx]
 })
 
-# Keep only requested groups and set order
 df = df[df["Group"].isin(group_order)].copy()
-df["Group"] = pd.Categorical(
-    df["Group"],
-    categories=group_order,
-    ordered=True
-)
+df["Group"] = pd.Categorical(df["Group"], categories=group_order, ordered=True)
 
 # Plot
-
 fig, ax = plt.subplots(figsize=(4, 3))
 
 sns.boxplot(
-    data=df,
-    x="Group",
-    y="Loading",
-    order=group_order,
-    hue="Group",
-    palette=palette,
-    dodge=False,
-    showfliers=False,
-    ax=ax,
-    legend=False
+    data=df, x="Group", y="Loading", order=group_order, hue="Group",
+    palette=palette, dodge=False, showfliers=False, ax=ax, legend=False
 )
 
 sns.stripplot(
-    data=df,
-    x="Group",
-    y="Loading",
-    order=group_order,
-    ax=ax,
-    color="black",
-    size=3,
-    jitter=0.15,
-    alpha=0.8
+    data=df, x="Group", y="Loading", order=group_order,
+    ax=ax, color="black", size=3, jitter=0.15, alpha=0.8
 )
 
 ax.set_title(f"Context factor {factor_human}")
 ax.set_xlabel("")
 ax.set_ylabel("Context loading")
 
-
 ymin, ymax = ax.get_ylim()
 y_range = ymax - ymin
-
-# Add ~20–30% extra space on top
 ax.set_ylim(ymin, ymax + 0.3 * y_range)
-
-# Force fixed headroom
 ax.set_ylim(ymin, ymax + 0.1)
 
 plt.tight_layout()
 
-# save
-
+# Save
 out = "context_fact5_1200dpi_colors.png"
-
-fig.savefig(
-    out,
-    dpi=1200,
-    bbox_inches="tight"
-)
-
+fig.savefig(out, dpi=1200, bbox_inches="tight")
 plt.close(fig)
-
 print(f"Saved: {out}")
-
 )")
 
 # ==============================================================================
 # Figure 4C: Hepatocyte-KC interaction proportion
 # ==============================================================================
-
-#load liana per each condition calculated
-
-health_list <- list(
-  HC  = liana_res_hc,
-  HBV = liana_res_hbv,
-  HDV = liana_res_hdv
-)
-
-health_order <- c("HC", "HBV", "HDV")
-
+health_list <- list(HC = liana_res_hc, HBV = liana_res_hbv, HDV = liana_res_hdv)
 kc_order <- c("KC2", "KC1")
 
-
-is_hep <- function(x) {
-  grepl("^Hepatocyte", x)
-}
-
+is_hep <- function(x) { grepl("^Hepatocyte", x) }
 
 get_hep_kc_counts <- function(df, condition_name) {
   df %>%
-    filter(
-      (is_hep(source) & target %in% c("KC1", "KC2")) |
-        (source %in% c("KC1", "KC2") & is_hep(target))
-    ) %>%
-    mutate(
-      kc = ifelse(
-        source %in% c("KC1", "KC2"),
-        source,
-        target
-      )
-    ) %>%
-    count(
-      kc,
-      name = "n_interactions"
-    ) %>%
-    mutate(
-      condition = condition_name
-    )
+    filter((is_hep(source) & target %in% c("KC1", "KC2")) | (source %in% c("KC1", "KC2") & is_hep(target))) %>%
+    mutate(kc = ifelse(source %in% c("KC1", "KC2"), source, target)) %>%
+    count(kc, name = "n_interactions") %>%
+    mutate(condition = condition_name)
 }
 
+count_df <- bind_rows(lapply(names(health_list), function(cond) { get_hep_kc_counts(health_list[[cond]], cond) })) %>%
+  complete(condition = health_order, kc = c("KC1", "KC2"), fill = list(n_interactions = 0)) %>%
+  mutate(condition = factor(condition, levels = health_order), kc = factor(kc, levels = kc_order)) %>%
+  arrange(condition, kc)
 
-count_df <- bind_rows(
-  lapply(names(health_list), function(cond) {
-    get_hep_kc_counts(
-      health_list[[cond]],
-      cond
-    )
-  })
-) %>%
-  complete(
-    condition = health_order,
-    kc = c("KC1", "KC2"),
-    fill = list(n_interactions = 0)
-  ) %>%
-  mutate(
-    condition = factor(
-      condition,
-      levels = health_order
-    ),
-    kc = factor(
-      kc,
-      levels = kc_order
-    )
-  ) %>%
-  arrange(
-    condition,
-    kc
-  )
+total_interactions_df <- bind_rows(lapply(names(health_list), function(cond) {
+  tibble(condition = cond, total_interactions = nrow(health_list[[cond]]))
+})) %>% mutate(condition = factor(condition, levels = health_order))
 
-print(count_df)
-
-total_interactions_df <- bind_rows(
-  lapply(names(health_list), function(cond) {
-    tibble(
-      condition = cond,
-      total_interactions = nrow(health_list[[cond]])
-    )
-  })
-) %>%
-  mutate(
-    condition = factor(
-      condition,
-      levels = health_order
-    )
-  )
-
-print(total_interactions_df)
-
-
-# Divide Hepatocyte-KC interactions by total interactions of each etiology
-
+# Divide Hepatocyte-KC interactions by total interactions
 count_df <- count_df %>%
-  left_join(
-    total_interactions_df,
-    by = "condition"
-  ) %>%
-  mutate(
-    pct_total_interactions = n_interactions / total_interactions
-  )
-
-print(count_df)
-
+  left_join(total_interactions_df, by = "condition") %>%
+  mutate(pct_total_interactions = n_interactions / total_interactions)
 
 # Normalize each KC subtype to HC
-
-
-hc_ref <- count_df %>%
-  filter(condition == "HC") %>%
-  dplyr::select(
-    kc,
-    pct_total_HC = pct_total_interactions
-  )
+hc_ref <- count_df %>% filter(condition == "HC") %>% dplyr::select(kc, pct_total_HC = pct_total_interactions)
 
 plot_df <- count_df %>%
-  left_join(
-    hc_ref,
-    by = "kc"
-  ) %>%
-  mutate(
-    pct_vs_HC = ifelse(
-      pct_total_HC > 0,
-      pct_total_interactions / pct_total_HC * 100,
-      NA_real_
-    )
-  ) %>%
-  arrange(
-    condition,
-    kc
-  )
+  left_join(hc_ref, by = "kc") %>%
+  mutate(pct_vs_HC = ifelse(pct_total_HC > 0, (pct_total_interactions / pct_total_HC) * 100, NA_real_)) %>%
+  arrange(condition, kc)
 
-print(plot_df)
-
-
-
-hc_check <- plot_df %>%
-  filter(condition == "HC") %>%
-  dplyr::select(
-    kc,
-    n_interactions,
-    total_interactions,
-    pct_total_interactions,
-    pct_total_HC,
-    pct_vs_HC
-  )
-
-print(hc_check)
-
-# stacked 
-
-totals_df <- plot_df %>%
-  group_by(condition) %>%
-  summarise(
-    total_stack = sum(pct_vs_HC, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-print(totals_df)
-
-# plot
-
-p <- ggplot(
-  plot_df,
-  aes(
-    x = kc,
-    y = pct_vs_HC,
-    fill = condition
-  )
-) +
-  geom_col(
-    position = position_dodge(width = 0.75),
-    width = 0.65,
-    color = "#333333",
-    linewidth = 0.6
-  ) +
-  geom_hline(
-    yintercept = 100,
-    linetype = "dashed",
-    color = "grey45",
-    linewidth = 0.6
-  ) +
-  scale_fill_manual(
-    values = c(
-      "HC"  = "#FE4A49",
-      "HBV" = "#2AB7CA",
-      "HDV" = "#FED766"
-    )
-  ) +
-  labs(
-    title = "Hepatocyte ↔ KC subtype interactions normalized to HC",
-    x = "KC subtype",
-    y = "Interaction proportion (% of HC)",
-    fill = NULL
-  ) +
+p <- ggplot(plot_df, aes(x = kc, y = pct_vs_HC, fill = condition)) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.65, color = "#333333", linewidth = 0.6) +
+  geom_hline(yintercept = 100, linetype = "dashed", color = "grey45", linewidth = 0.6) +
+  scale_fill_manual(values = etiology_colors) +
+  labs(title = "Hepatocyte ↔ KC subtype interactions normalized to HC", x = "KC subtype", y = "Interaction proportion (% of HC)", fill = NULL) +
   theme_classic(base_size = 14) +
   theme(
-    plot.title = element_text(
-      face = "bold",
-      hjust = 0.5
-    ),
-    axis.text.x = element_text(
-      face = "bold"
-    ),
-    axis.text.y = element_text(
-      face = "bold"
-    )
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    axis.text.x = element_text(face = "bold"),
+    axis.text.y = element_text(face = "bold")
   )
 
+png(filename = file.path(OUT_DIR, "fig4c.png"), width = 10, height = 8, units = "in", res = 1200)
 print(p)
-
-
-png(
-  filename = file.path(
-    OUT_DIR,
-    "fig4c.png"
-  ),
-  width = 10,
-  height = 8,
-  units = "in",
-  res = 1200
-)
-
-p
-
 dev.off()
-
 
 # ==============================================================================
 # Figure 4E: Hepatocyte - KC interactions
 # ==============================================================================
-
-LIANA_DIR <- "/path/to/liana"
-
-# Read LIANA results
-liana_res_hc <- readxl::read_excel(
-  file.path(LIANA_DIR, "liana_res_hc.xlsx")
-)
-
-liana_res_hbv <- readxl::read_excel(
-  file.path(LIANA_DIR, "liana_res_hbv.xlsx")
-)
-
-liana_res_hdv <- readxl::read_excel(
-  file.path(LIANA_DIR, "liana_res_hdv.xlsx")
-)
-
-
-health_list <- list(
-  HC  = liana_res_hc,
-  HBV = liana_res_hbv,
-  HDV = liana_res_hdv
-)
-
-health_order <- c("HC", "HBV", "HDV")
-hep_pattern  <- "^Hepatocyte"
-
 pval_threshold <- 0.05
-top_n_per_condition <- 4
-
 plot_width  <- 2.8
 plot_height <- 4.2
-
 dot_size_range <- c(0.18, 1.4)
-
-y_text_size        <- 3.7
-strip_text_size    <- 5.5
-title_size         <- 7
-legend_text_size   <- 4.3
-legend_title_size  <- 5.2
-
+y_text_size <- 3.7
+strip_text_size <- 5.5
+title_size <- 7
+legend_text_size <- 4.3
+legend_title_size <- 5.2
 
 # Selected interactions
+hep_to_kc1_pairs <- c("CCN1 → ITGB2", "CD99 → PILRA", "SAA1 → FPR1", "SAA1 → TLR2", "SAA1 → CD36", "HP → TLR4", 
+                      "HP → ITGAM", "HP → CD163", "HP → ITGB2", "SERPINA1 → LRP1", "ALB → B2M-FCGRT", "VTN → CD47", 
+                      "FN1 → CD44", "APOB → ITGB2", "KNG1 → ITGB2", "PLG → ITGB2")
 
-hep_to_kc1_pairs <- c(
-  "CCN1 → ITGB2",
-  "CD99 → PILRA",
-  "SAA1 → FPR1",
-  "SAA1 → TLR2",
-  "SAA1 → CD36",
-  "HP → TLR4",
-  "HP → ITGAM",
-  "HP → CD163",
-  "HP → ITGB2",
-  "SERPINA1 → LRP1",
-  "ALB → B2M-FCGRT",
-  "VTN → CD47",
-  "FN1 → CD44",
-  "APOB → ITGB2",
-  "KNG1 → ITGB2",
-  "PLG → ITGB2"
-)
+hep_to_kc2_pairs <- c("ARF6 → SMAP1", "BMP1 → BMPR1A", "ADAM17 → IL6R", "SAA1 → TLR2", "SAA1 → FPR1", "SAA1 → CD36", 
+                      "SAA1 → SCARB1", "HP → TLR4", "HP → ITGAM", "HP → CD163", "ALB → B2M-FCGRT", "APOA2 → LRP1", 
+                      "APOA1 → ABCA1", "APOA1 → LRP1", "APOC3 → LRP1")
 
-hep_to_kc2_pairs <- c(
-  "ARF6 → SMAP1",
-  "BMP1 → BMPR1A",
-  "ADAM17 → IL6R",
-  "SAA1 → TLR2",
-  "SAA1 → FPR1",
-  "SAA1 → CD36",
-  "SAA1 → SCARB1",
-  "HP → TLR4",
-  "HP → ITGAM",
-  "HP → CD163",
-  "ALB → B2M-FCGRT",
-  "APOA2 → LRP1",
-  "APOA1 → ABCA1",
-  "APOA1 → LRP1",
-  "APOC3 → LRP1"
-)
-
-
-# helpers prior to visualize
-
-clean_lr_label <- function(x) {
-  x %>%
-    stringr::str_replace_all("_", "-") %>%
-    stringr::str_squish()
-}
-
+# Helpers
+clean_lr_label <- function(x) { stringr::str_squish(stringr::str_replace_all(x, "_", "-")) }
 
 add_liana_plot_columns <- function(df, disease_name) {
-  
-  df %>%
-    mutate(
-      disease = disease_name,
-      original_source = source,
-      original_target = target,
-      
-      ligand.complex = clean_lr_label(ligand_complex),
-      receptor.complex = clean_lr_label(receptor_complex),
-      
-      lr_pair_clean = paste(
-        ligand.complex,
-        receptor.complex,
-        sep = " → "
-      ),
-      
-      significant = !is.na(cellphone_pvals) &
-        cellphone_pvals < pval_threshold
-    )
+  df %>% mutate(
+    disease = disease_name, original_source = source, original_target = target,
+    ligand.complex = clean_lr_label(ligand_complex), receptor.complex = clean_lr_label(receptor_complex),
+    lr_pair_clean = paste(ligand.complex, receptor.complex, sep = " → "),
+    significant = !is.na(cellphone_pvals) & cellphone_pvals < pval_threshold
+  )
 }
-
 
 collapse_lr_pairs <- function(df) {
-  
-  df %>%
-    group_by(
-      disease,
-      lr_pair_clean
-    ) %>%
-    arrange(
-      desc(lr_means),
-      cellphone_pvals,
-      .by_group = TRUE
-    ) %>%
-    slice_head(n = 1) %>%
-    ungroup()
+  df %>% group_by(disease, lr_pair_clean) %>% arrange(desc(lr_means), cellphone_pvals, .by_group = TRUE) %>% slice_head(n = 1) %>% ungroup()
 }
 
-
-# Hepatocyte -> KC dotplots!
-
-prepare_hep_to_kc_dotplot <- function(health_list,
-                                      kc_name,
-                                      selected_pairs) {
-  
+prepare_hep_to_kc_dotplot <- function(health_list, kc_name, selected_pairs) {
   selected_pairs_clean <- clean_lr_label(selected_pairs)
   panel_label <- paste0("Hepatocytes_to_", kc_name)
   
-  liana_df <- bind_rows(
-    lapply(names(health_list), function(disease_name) {
-      
-      health_list[[disease_name]] %>%
-        filter(
-          grepl(hep_pattern, source),
-          target == kc_name
-        ) %>%
-        add_liana_plot_columns(disease_name)
-    })
-  )
+  liana_df <- bind_rows(lapply(names(health_list), function(disease_name) {
+    health_list[[disease_name]] %>% filter(grepl("^Hepatocyte", source), target == kc_name) %>% add_liana_plot_columns(disease_name)
+  }))
   
   plot_df <- liana_df %>%
     filter(lr_pair_clean %in% selected_pairs_clean) %>%
     collapse_lr_pairs() %>%
-    mutate(
-      source = factor(
-        disease,
-        levels = health_order
-      ),
-      target = factor(panel_label),
-      lr_pair_clean = factor(
-        lr_pair_clean,
-        levels = selected_pairs_clean
-      )
-    ) %>%
-    arrange(
-      lr_pair_clean,
-      disease
-    ) %>%
+    mutate(source = factor(disease, levels = health_order), target = factor(panel_label), lr_pair_clean = factor(lr_pair_clean, levels = selected_pairs_clean)) %>%
+    arrange(lr_pair_clean, disease) %>%
     as.data.frame()
-
-  list(
-    plot_res = plot_df,
-    panel_label = panel_label
-  )
+  
+  list(plot_res = plot_df, panel_label = panel_label)
 }
 
-
-
-# Plot function
-
-plot_liana_interactions <- function(dotplot_obj,
-                                    plot_title) {
-  
-  panel_target <- unique(
-    as.character(dotplot_obj$plot_res$target)
-  )
+plot_liana_interactions <- function(dotplot_obj, plot_title) {
+  panel_target <- unique(as.character(dotplot_obj$plot_res$target))
   
   liana_dotplot(
-    liana_res = dotplot_obj$plot_res,
-    source_groups = health_order,
-    target_groups = panel_target,
-    ntop = NULL,
-    magnitude = "lr_means",
-    specificity = "cellphone_pvals",
-    invert_specificity = TRUE,
-    invert_magnitude = FALSE,
-    colour.label = "LR mean\nexpression",
-    size.label = "CPDB\np-value",
-    show_complex = TRUE,
-    size_range = dot_size_range
-  ) +
-    ggtitle(plot_title) +
+    liana_res = dotplot_obj$plot_res, source_groups = health_order, target_groups = panel_target, ntop = NULL,
+    magnitude = "lr_means", specificity = "cellphone_pvals", invert_specificity = TRUE, invert_magnitude = FALSE,
+    colour.label = "LR mean\nexpression", size.label = "CPDB\np-value", show_complex = TRUE, size_range = dot_size_range
+  ) + ggtitle(plot_title) +
     theme(
-      plot.title = element_text(
-        size = title_size,
-        face = "bold",
-        hjust = 0.5
-      ),
-      strip.text.x = element_text(
-        size = strip_text_size,
-        face = "plain"
-      ),
-      axis.text.y = element_text(
-        size = y_text_size
-      ),
-      axis.title.y = element_text(
-        size = 5.2,
-        face = "bold"
-      ),
-      axis.text.x = element_blank(),
-      axis.title.x = element_blank(),
-      axis.ticks.x = element_blank(),
-      legend.title = element_text(
-        size = legend_title_size,
-        face = "bold"
-      ),
-      legend.text = element_text(
-        size = legend_text_size
-      ),
-      legend.key.size = unit(0.20, "cm"),
-      plot.margin = margin(2, 2, 2, 2)
+      plot.title = element_text(size = title_size, face = "bold", hjust = 0.5), strip.text.x = element_text(size = strip_text_size, face = "plain"),
+      axis.text.y = element_text(size = y_text_size), axis.title.y = element_text(size = 5.2, face = "bold"),
+      axis.text.x = element_blank(), axis.title.x = element_blank(), axis.ticks.x = element_blank(),
+      legend.title = element_text(size = legend_title_size, face = "bold"), legend.text = element_text(size = legend_text_size),
+      legend.key.size = unit(0.20, "cm"), plot.margin = margin(2, 2, 2, 2)
     )
 }
 
-
-# Build dotplot inputs
-
-hep_to_kc1_dot <- prepare_hep_to_kc_dotplot(
-  health_list = health_list,
-  kc_name = "KC1",
-  selected_pairs = hep_to_kc1_pairs
-)
-
-hep_to_kc2_dot <- prepare_hep_to_kc_dotplot(
-  health_list = health_list,
-  kc_name = "KC2",
-  selected_pairs = hep_to_kc2_pairs
-)
-
-
-
 # Generate plots
+hep_to_kc1_dot <- prepare_hep_to_kc_dotplot(health_list, "KC1", hep_to_kc1_pairs)
+hep_to_kc2_dot <- prepare_hep_to_kc_dotplot(health_list, "KC2", hep_to_kc2_pairs)
 
-p_hep_to_kc1 <- plot_liana_interactions(
-  hep_to_kc1_dot,
-  "Hepatocytes → KC1"
-)
-
-p_hep_to_kc2 <- plot_liana_interactions(
-  hep_to_kc2_dot,
-  "Hepatocytes → KC2"
-)
-
-
+p_hep_to_kc1 <- plot_liana_interactions(hep_to_kc1_dot, "Hepatocytes → KC1")
+p_hep_to_kc2 <- plot_liana_interactions(hep_to_kc2_dot, "Hepatocytes → KC2")
 
 # Export plots
-
-ggsave(
-  filename = file.path(
-    OUT_DIR,
-    "fig4e_hepatocytes_to_kc1.png"
-  ),
-  plot = p_hep_to_kc1,
-  width = plot_width,
-  height = plot_height,
-  dpi = 1200
-)
-
-ggsave(
-  filename = file.path(
-    OUT_DIR,
-    "fig4e_hepatocytes_to_kc1.pdf"
-  ),
-  plot = p_hep_to_kc1,
-  width = plot_width,
-  height = plot_height
-)
-
-ggsave(
-  filename = file.path(
-    OUT_DIR,
-    "fig4e_hepatocytes_to_kc2.png"
-  ),
-  plot = p_hep_to_kc2,
-  width = plot_width,
-  height = plot_height,
-  dpi = 1200
-)
-
-ggsave(
-  filename = file.path(
-    OUT_DIR,
-    "fig4e_hepatocytes_to_kc2.pdf"
-  ),
-  plot = p_hep_to_kc2,
-  width = plot_width,
-  height = plot_height
-)
-
-
-
-
-
-
-
-# ==============================================================================
-# Figure 4E: SCOTIA Cell-to-Cell Interactions
-# ==============================================================================
-message("Generating Figure 4E (SCOTIA Interactions)...")
-
-all_int <- read_csv(SCOTIA_PATH, show_col_types = FALSE)
-
-# Map etiology from Seurat metadata to SCOTIA results
-logy <- meta$etiology
-names(logy) <- meta$cell_names
-all_int$etiology <- logy[all_int$id_source]
-
-hepatocytes <- c("Hepatocyte 1", "Hepatocyte 2", "Hepatocyte 3", "Hepatocyte 5", "Hepatocyte 6")
-
-# Filter for relevant etiologies and high likelihood interactions
-cut_int <- all_int %>% 
-  filter(etiology %in% c("HDV RNA+", "HBV", "HC"), likelihood > 0.5)
-
-# Calculate totals per etiology
-int_table_all <- as.data.frame(table(cut_int$etiology))
-names(int_table_all) <- c("etiology", "all_int")
-
-# --- 1. Hepatocytes (All) ---
-hep_all <- cut_int %>% 
-  filter(refined_receptor %in% hepatocytes | refined_source %in% hepatocytes)
-int_hep_all <- as.data.frame(table(hep_all$etiology))
-
-df_hep <- int_table_all
-df_hep$hep_all <- int_hep_all$Freq
-df_hep$perc <- (df_hep$hep_all / df_hep$all_int) * 100
-df_hep$norm <- df_hep$perc / df_hep$perc[df_hep$etiology == "HC"] # Safely normalize to HC
-df_hep$Condition <- "Hepatocytes All"
-
-# --- 2. Hepatocytes with KC2 ---
-hep_kc2 <- cut_int %>% 
-  filter(refined_receptor %in% c(hepatocytes, "KC2") & refined_source %in% c(hepatocytes, "KC2"))
-int_hep_kc2 <- as.data.frame(table(hep_kc2$etiology))
-
-df_kc2 <- int_table_all
-df_kc2$hep_all <- int_hep_kc2$Freq
-df_kc2$perc <- (df_kc2$hep_all / df_kc2$all_int) * 100
-df_kc2$norm <- df_kc2$perc / df_kc2$perc[df_kc2$etiology == "HC"] # Safely normalize to HC
-df_kc2$Condition <- "Hep + KC2"
-
-# Combine data for plotting
-all_data <- bind_rows(df_hep, df_kc2)
-
-# Ensure factor ordering
-all_data$etiology <- factor(all_data$etiology, levels = c("HC", "HBV", "HDV RNA+"))
-all_data$Condition <- factor(all_data$Condition, levels = c("Hepatocytes All", "Hep + KC2"))
-
-# Plot 4E
-p_4e <- ggplot(all_data, aes(x = Condition, y = norm, fill = etiology)) +
-  geom_bar(stat = "identity", position = position_dodge(width = 0.8), color = "black", width = 0.7) +
-  scale_fill_manual(values = etiology_colors) + 
-  theme_minimal() +
-  theme(
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black", linewidth = 1),
-    axis.ticks = element_line(color = "black", linewidth = 1),
-    axis.ticks.length = unit(0.2, "cm"),
-    axis.text.x = element_text(size = 12, face = "bold", color = "black"),
-    axis.text.y = element_text(size = 12, color = "black"),
-    axis.title.y = element_text(size = 12, face = "bold", color = "black"),
-    axis.title.x = element_blank(), 
-    legend.position = "top"
-  ) +
-  labs(y = "Normalized Frequency (Ref: HC)", fill = "Etiology")
-
-png(filename = file.path(OUT_DIR, "figure4_E.png"), width = 8, height = 6, units = "in", res = 400)
-print(p_4e)
-dev.off()
-
-# ==============================================================================
-# Figure 4F: Cell Co-occurrence Enrichment (Hepatocytes & KC)
-# ==============================================================================
-message("Generating Figure 4F (Co-occurrence Enrichment)...")
-
-all_cooccur <- read_csv(COOCCUR_PATH, show_col_types = FALSE)
-
-# Filter for Hepatocyte interactions with KC1 and KC2
-all_kc1 <- all_cooccur %>% 
-  filter(from == "Hepatocyte", to %in% c("KC1", "KC2"), etiology != "HDV RNA-")
-
-# Set factor levels for correct plotting order
-all_kc1$interval_numeric <- factor(all_kc1$bin, levels = sort(unique(all_kc1$bin)))
-all_kc1$etiology <- factor(all_kc1$etiology, levels = c("HC", "HBV", "HDV RNA+"))
-
-# Plot 4F
-p_4f <- ggplot(all_kc1, aes(x = bin, y = enrichment, group = to, color = to)) +
-  geom_smooth(alpha = 0.05, linewidth = 1.5, method = "loess", formula = y ~ x) + 
-  geom_hline(yintercept = 0, color = "black", linewidth = 1, linetype = "dashed") +
-  facet_wrap(~ etiology) + 
-  scale_color_manual(values = refined_col) +
-  scale_x_continuous(breaks = scales::pretty_breaks(n = 10), labels = NULL) +
-  theme_linedraw() +
-  theme(
-    panel.grid = element_blank(),
-    panel.background = element_blank(),
-    panel.border = element_rect(color = "black", fill = NA, linewidth = 1.5),
-    axis.line = element_blank(),
-    legend.position = "none",
-    axis.text.x = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks.x = element_line(linewidth = 1.5, color = "black"),
-    axis.ticks.y = element_line(linewidth = 1.5, color = "black"),
-    axis.ticks.length = unit(6, "pt"),
-    text = element_text(size = 20, face = "bold")
-  ) +
-  labs(x = NULL, y = NULL)
-
-png(filename = file.path(OUT_DIR, "figure4_F_coocurrence_hep_kc1.png"), width = 14, height = 6, units = "in", res = 1200)
-print(p_4f)
-dev.off()
-
-message("Figure 4 generation complete.")
+ggsave(filename = file.path(OUT_DIR, "fig4e_hepatocytes_to_kc1.png"), plot = p_hep_to_kc1, width = plot_width, height = plot_height, dpi = 1200)
+ggsave(filename = file.path(OUT_DIR, "fig4e_hepatocytes_to_kc1.pdf"), plot = p_hep_to_kc1, width = plot_width, height = plot_height)
+ggsave(filename = file.path(OUT_DIR, "fig4e_hepatocytes_to_kc2.png"), plot = p_hep_to_kc2, width = plot_width, height = plot_height, dpi = 1200)
+ggsave(filename = file.path(OUT_DIR, "fig4e_hepatocytes_to_kc2.pdf"), plot = p_hep_to_kc2, width = plot_width, height = plot_height)
