@@ -280,7 +280,7 @@ write.csv(final_enrichment, file.path(OUT_DIR, "fig1_pathway_cosmx.csv"), row.na
 # FIG 1C - scRNAseq HDV-active vs HBV 
 # ==============================================================================
 
-hepatocytes <- readRDS("~/subsets/hepatocytes/harmony_new2/hepatocytes_harmony.RDS")
+hepatocytes <- readRDS("/path/to/hepatocytes_harmony.RDS")
 
 # Differential expression analysis: HDV vs HBV hepatocytes
 hep <- hepatocytes
