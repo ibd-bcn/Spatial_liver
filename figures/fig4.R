@@ -51,9 +51,9 @@ refined_col <- c(
   "Tem_Trm_cytotoxic_T_cells" = "#4ae9ff", "Effector_helper_T_cells"   = "#0091AB",
   "Naive_T_cells"             = "#BBD6DB", "Memory_B_cells"            = "#E34183",
   "Plasma_cells"              = "#F1B8EF", "Naive_B_cells"             = "#FE64F9",
-  "Monocytes"                 = "#a11191", "KC1"                       = "#ff0077",
-  "M2_LYVE1"                  = "#ffbf00", "KC2"                       = "#56c9f2",
-  "DCs_CD1C"                  = "#02fa8d", "M1"                        = "#9c78fe",
+  "Monocytes"                 = "#a11191", "i-KC"                       = "#ff0077",
+  "h-Mac"                  = "#ffbf00", "h-KC"                       = "#56c9f2",
+  "DCs_CD1C"                  = "#02fa8d", "i-Mac"                        = "#9c78fe",
   "Endothelial_cells_2"       = "#FFDC5F", "Fibroblasts"               = "#DB9925",
   "Endothelial_cells_1"       = "#F9F452", "Smooth_muscle_cells"       = "#FF8D08",
   "Endothelial_cells_4"       = "#CCC618", "Endothelial_cells_3"       = "#EADE8D",
@@ -327,20 +327,20 @@ print(f"Saved: {out}")
 # Figure 4C: Hepatocyte-KC interaction proportion
 # ==============================================================================
 health_list <- list(HC = liana_res_hc, HBV = liana_res_hbv, HDV = liana_res_hdv)
-kc_order <- c("KC2", "KC1")
+kc_order <- c("h-KC", "i-KC")
 
 is_hep <- function(x) { grepl("^Hepatocyte", x) }
 
 get_hep_kc_counts <- function(df, condition_name) {
   df %>%
-    filter((is_hep(source) & target %in% c("KC1", "KC2")) | (source %in% c("KC1", "KC2") & is_hep(target))) %>%
-    mutate(kc = ifelse(source %in% c("KC1", "KC2"), source, target)) %>%
+    filter((is_hep(source) & target %in% c("i-KC", "h-KC")) | (source %in% c("i-KC", "h-KC") & is_hep(target))) %>%
+    mutate(kc = ifelse(source %in% c("i-KC", "h-KC"), source, target)) %>%
     count(kc, name = "n_interactions") %>%
     mutate(condition = condition_name)
 }
 
 count_df <- bind_rows(lapply(names(health_list), function(cond) { get_hep_kc_counts(health_list[[cond]], cond) })) %>%
-  complete(condition = health_order, kc = c("KC1", "KC2"), fill = list(n_interactions = 0)) %>%
+  complete(condition = health_order, kc = c("i-KC", "h-KC"), fill = list(n_interactions = 0)) %>%
   mutate(condition = factor(condition, levels = health_order), kc = factor(kc, levels = kc_order)) %>%
   arrange(condition, kc)
 
@@ -451,11 +451,11 @@ plot_liana_interactions <- function(dotplot_obj, plot_title) {
 }
 
 # Generate plots
-hep_to_kc1_dot <- prepare_hep_to_kc_dotplot(health_list, "KC1", hep_to_kc1_pairs)
-hep_to_kc2_dot <- prepare_hep_to_kc_dotplot(health_list, "KC2", hep_to_kc2_pairs)
+hep_to_kc1_dot <- prepare_hep_to_kc_dotplot(health_list, "i-KC", hep_to_kc1_pairs)
+hep_to_kc2_dot <- prepare_hep_to_kc_dotplot(health_list, "h-KC", hep_to_kc2_pairs)
 
-p_hep_to_kc1 <- plot_liana_interactions(hep_to_kc1_dot, "Hepatocytes → KC1")
-p_hep_to_kc2 <- plot_liana_interactions(hep_to_kc2_dot, "Hepatocytes → KC2")
+p_hep_to_kc1 <- plot_liana_interactions(hep_to_kc1_dot, "Hepatocytes → i-KC")
+p_hep_to_kc2 <- plot_liana_interactions(hep_to_kc2_dot, "Hepatocytes → h-KC")
 
 # Export plots
 ggsave(filename = file.path(OUT_DIR, "fig4e_hepatocytes_to_kc1.png"), plot = p_hep_to_kc1, width = plot_width, height = plot_height, dpi = 1200)

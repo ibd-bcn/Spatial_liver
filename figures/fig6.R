@@ -45,9 +45,9 @@ refined_col <- c(
   "Tem_Trm_cytotoxic_T_cells" = "#4ae9ff", "Effector_helper_T_cells"   = "#0091AB",
   "Naive_T_cells"             = "#BBD6DB", "Memory_B_cells"            = "#E34183",
   "Plasma_cells"              = "#F1B8EF", "Naive_B_cells"             = "#FE64F9",
-  "Monocytes"                 = "#a11191", "KC1"                       = "#ff0077",
-  "M2_LYVE1"                  = "#ffbf00", "KC2"                       = "#56c9f2",
-  "DCs_CD1C"                  = "#02fa8d", "M1"                        = "#9c78fe",
+  "Monocytes"                 = "#a11191", "i-KC"                       = "#ff0077",
+  "h-Mac"                  = "#ffbf00", "h-KC"                       = "#56c9f2",
+  "DCs_CD1C"                  = "#02fa8d", "i-Mac"                        = "#9c78fe",
   "Endothelial_cells_2"       = "#FFDC5F", "Fibroblasts"               = "#DB9925",
   "Endothelial_cells_1"       = "#F9F452", "Smooth_muscle_cells"       = "#FF8D08",
   "Endothelial_cells_4"       = "#CCC618", "Endothelial_cells_3"       = "#EADE8D",
@@ -199,12 +199,12 @@ all_int$etiology <- logy_map[all_int$id_source]
 cut_int_6c <- all_int %>% filter(etiology %in% c("HDV RNA+", "HDV RNA-"), likelihood > 0.5)
 
 df_hep_6c <- calc_interaction_freq(cut_int_6c, hepatocytes, "etiology", "HDV RNA-", "Hepatocytes All")
-df_kc1_6c <- calc_interaction_freq(cut_int_6c, c(hepatocytes, "KC1"), "etiology", "HDV RNA-", "Hep + KC1")
-df_kc2_6c <- calc_interaction_freq(cut_int_6c, c(hepatocytes, "KC2"), "etiology", "HDV RNA-", "Hep + KC2")
+df_kc1_6c <- calc_interaction_freq(cut_int_6c, c(hepatocytes, "i-KC"), "etiology", "HDV RNA-", "Hep + i-KC")
+df_kc2_6c <- calc_interaction_freq(cut_int_6c, c(hepatocytes, "h-KC"), "etiology", "HDV RNA-", "Hep + h-KC")
 
 all_data_6c <- bind_rows(df_hep_6c, df_kc1_6c, df_kc2_6c)
 all_data_6c$etiology <- factor(all_data_6c$etiology, levels = c("HDV RNA+", "HDV RNA-"))
-all_data_6c$Condition <- factor(all_data_6c$Condition, levels = c("Hepatocytes All", "Hep + KC1", "Hep + KC2"))
+all_data_6c$Condition <- factor(all_data_6c$Condition, levels = c("Hepatocytes All", "Hep + i-KC", "Hep + h-KC"))
 
 p_6c <- ggplot(all_data_6c, aes(x = Condition, y = norm, fill = etiology)) +
   geom_bar(stat = "identity", position = position_dodge(width = 0.8), color = "black", width = 0.7) +
@@ -228,7 +228,7 @@ dev.off()
 all_cooccur <- read_csv(COOCCUR_PATH, show_col_types = FALSE)
 
 all_kc1_6d <- all_cooccur %>% 
-  filter(from == "Hepatocyte", to %in% c("KC1", "KC2"), etiology %in% c("HDV RNA+", "HDV RNA-"))
+  filter(from == "Hepatocyte", to %in% c("i-KC", "h-KC"), etiology %in% c("HDV RNA+", "HDV RNA-"))
 
 all_kc1_6d$interval_numeric <- factor(all_kc1_6d$bin, levels = sort(unique(all_kc1_6d$bin)))
 all_kc1_6d$etiology <- factor(all_kc1_6d$etiology, levels = c("HDV RNA+", "HDV RNA-"))

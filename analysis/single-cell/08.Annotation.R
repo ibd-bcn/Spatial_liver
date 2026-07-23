@@ -28,7 +28,7 @@ tcells <- readRDS("~/subsets/tcells/harmony2/tcells_harmony.RDS")
 #
 myeloid_annotation<- data.frame(
   Cluster = c(0L, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L),
-  Myeloids = c("Monocytes", "KC1", "Neutrophils", "DCs CD1C", "KC2", "M2-LYVE1", "M1", "M1", "Mast cells", "Monocytes")
+  Myeloids = c("Monocytes", "i-KC", "Neutrophils", "DCs CD1C", "h-KC", "M2-LYVE1", "i-Mac", "i-Mac", "Mast cells", "Monocytes")
 )
 
 

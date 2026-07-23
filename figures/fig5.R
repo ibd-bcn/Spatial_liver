@@ -44,9 +44,9 @@ refined_col <- c(
   "Tem_Trm_cytotoxic_T_cells" = "#4ae9ff", "Effector_helper_T_cells"   = "#0091AB",
   "Naive_T_cells"             = "#BBD6DB", "Memory_B_cells"            = "#E34183",
   "Plasma_cells"              = "#F1B8EF", "Naive_B_cells"             = "#FE64F9",
-  "Monocytes"                 = "#a11191", "KC1"                       = "#ff0077",
-  "M2_LYVE1"                  = "#ffbf00", "KC2"                       = "#56c9f2",
-  "DCs_CD1C"                  = "#02fa8d", "M1"                        = "#9c78fe",
+  "Monocytes"                 = "#a11191", "i-KC"                       = "#ff0077",
+  "h-Mac"                  = "#ffbf00", "h-KC"                       = "#56c9f2",
+  "DCs_CD1C"                  = "#02fa8d", "i-Mac"                        = "#9c78fe",
   "Endothelial_cells_2"       = "#FFDC5F", "Fibroblasts"               = "#DB9925",
   "Endothelial_cells_1"       = "#F9F452", "Smooth_muscle_cells"       = "#FF8D08",
   "Endothelial_cells_4"       = "#CCC618", "Endothelial_cells_3"       = "#EADE8D",
@@ -129,23 +129,23 @@ df_hep$perc <- (df_hep$hep_all / df_hep$all_int) * 100
 df_hep$norm <- df_hep$perc / df_hep$perc[df_hep$etiology == "HC"] # Safely normalize to HC
 df_hep$Condition <- "Hepatocytes All"
 
-# --- 2. Hepatocytes with KC2 ---
+# --- 2. Hepatocytes with h-KC ---
 hep_kc2 <- cut_int %>% 
-  filter(refined_receptor %in% c(hepatocytes, "KC2") & refined_source %in% c(hepatocytes, "KC2"))
+  filter(refined_receptor %in% c(hepatocytes, "h-KC") & refined_source %in% c(hepatocytes, "h-KC"))
 int_hep_kc2 <- as.data.frame(table(hep_kc2$etiology))
 
 df_kc2 <- int_table_all
 df_kc2$hep_all <- int_hep_kc2$Freq
 df_kc2$perc <- (df_kc2$hep_all / df_kc2$all_int) * 100
 df_kc2$norm <- df_kc2$perc / df_kc2$perc[df_kc2$etiology == "HC"] # Safely normalize to HC
-df_kc2$Condition <- "Hep + KC2"
+df_kc2$Condition <- "Hep + h-KC"
 
 # Combine data for plotting
 all_data <- bind_rows(df_hep, df_kc2)
 
 # Ensure factor ordering
 all_data$etiology <- factor(all_data$etiology, levels = c("HC", "HBV", "HDV RNA+"))
-all_data$Condition <- factor(all_data$Condition, levels = c("Hepatocytes All", "Hep + KC2"))
+all_data$Condition <- factor(all_data$Condition, levels = c("Hepatocytes All", "Hep + h-KC"))
 
 # Plot 5A
 p_5a <- ggplot(all_data, aes(x = Condition, y = norm, fill = etiology)) +
@@ -181,9 +181,9 @@ message("Generating Figure 5C (Co-occurrence Enrichment)...")
 
 all_cooccur <- read_csv(COOCCUR_PATH, show_col_types = FALSE)
 
-# Filter for Hepatocyte interactions with KC1 and KC2
+# Filter for Hepatocyte interactions with i-KC and h-KC
 all_kc1 <- all_cooccur %>% 
-  filter(from == "Hepatocyte", to %in% c("KC1", "KC2"), etiology != "HDV RNA-")
+  filter(from == "Hepatocyte", to %in% c("i-KC", "h-KC"), etiology != "HDV RNA-")
 
 # Set factor levels for correct plotting order
 all_kc1$interval_numeric <- factor(all_kc1$bin, levels = sort(unique(all_kc1$bin)))
@@ -242,14 +242,14 @@ cut_int_5e <- cut_int_5e %>% filter(!is.na(ag_general))
 
 # Calculate Interaction Frequencies
 df_hep_5e <- calc_interaction_freq(cut_int_5e, hepatocytes, "ag_general", "Neg", "Hepatocytes All")
-df_kc1_5e <- calc_interaction_freq(cut_int_5e, c(hepatocytes, "KC1"), "ag_general", "Neg", "Hep + KC1")
-df_kc2_5e <- calc_interaction_freq(cut_int_5e, c(hepatocytes, "KC2"), "ag_general", "Neg", "Hep + KC2")
+df_kc1_5e <- calc_interaction_freq(cut_int_5e, c(hepatocytes, "i-KC"), "ag_general", "Neg", "Hep + i-KC")
+df_kc2_5e <- calc_interaction_freq(cut_int_5e, c(hepatocytes, "h-KC"), "ag_general", "Neg", "Hep + h-KC")
 
 all_data_5e <- bind_rows(df_hep_5e, df_kc1_5e, df_kc2_5e)
 
 # Factor Ordering
 all_data_5e$ag_general <- factor(all_data_5e$ag_general, levels = c("Neg", "S+"))
-all_data_5e$Condition  <- factor(all_data_5e$Condition, levels = c("Hepatocytes All", "Hep + KC1", "Hep + KC2"))
+all_data_5e$Condition  <- factor(all_data_5e$Condition, levels = c("Hepatocytes All", "Hep + i-KC", "Hep + h-KC"))
 
 # Plot 5E
 p_5e <- ggplot(all_data_5e, aes(x = Condition, y = norm, fill = ag_general)) +
@@ -295,14 +295,14 @@ cut_int_5f <- cut_int_5f %>% filter(!is.na(Type_D) & Type_D != "none")
 
 # Calculate Interaction Frequencies
 df_hep_5f <- calc_interaction_freq(cut_int_5f, hepatocytes, "Type_D", "-", "Hepatocytes All")
-df_kc1_5f <- calc_interaction_freq(cut_int_5f, c(hepatocytes, "KC1"), "Type_D", "-", "Hep + KC1")
-df_kc2_5f <- calc_interaction_freq(cut_int_5f, c(hepatocytes, "KC2"), "Type_D", "-", "Hep + KC2")
+df_kc1_5f <- calc_interaction_freq(cut_int_5f, c(hepatocytes, "i-KC"), "Type_D", "-", "Hep + i-KC")
+df_kc2_5f <- calc_interaction_freq(cut_int_5f, c(hepatocytes, "h-KC"), "Type_D", "-", "Hep + h-KC")
 
 all_data_5f <- bind_rows(df_hep_5f, df_kc1_5f, df_kc2_5f)
 
 # Factor Ordering
 all_data_5f$Type_D    <- factor(all_data_5f$Type_D, levels = c("-", "+"))
-all_data_5f$Condition <- factor(all_data_5f$Condition, levels = c("Hepatocytes All", "Hep + KC1", "Hep + KC2"))
+all_data_5f$Condition <- factor(all_data_5f$Condition, levels = c("Hepatocytes All", "Hep + i-KC", "Hep + h-KC"))
 
 # Plot 5F
 p_5f <- ggplot(all_data_5f, aes(x = Condition, y = norm, fill = Type_D)) +

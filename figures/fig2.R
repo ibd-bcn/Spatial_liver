@@ -65,9 +65,9 @@ refined_col <- c(
   "Tem_Trm_cytotoxic_T_cells" = "#4ae9ff", "Effector_helper_T_cells"   = "#0091AB",
   "Naive_T_cells"             = "#BBD6DB", "Memory_B_cells"            = "#E34183",
   "Plasma_cells"              = "#F1B8EF", "Naive_B_cells"             = "#FE64F9",
-  "Monocytes"                 = "#a11191", "KC1"                       = "#ff0077",
-  "M2_LYVE1"                  = "#ffbf00", "KC2"                       = "#56c9f2",
-  "DCs_CD1C"                  = "#02fa8d", "M1"                        = "#9c78fe",
+  "Monocytes"                 = "#a11191", "i-KC"                       = "#ff0077",
+  "h-Mac"                  = "#ffbf00", "h-KC"                       = "#56c9f2",
+  "DCs_CD1C"                  = "#02fa8d", "i-Mac"                        = "#9c78fe",
   "Endothelial_cells_2"       = "#FFDC5F", "Fibroblasts"               = "#DB9925",
   "Endothelial_cells_1"       = "#F9F452", "Smooth_muscle_cells"       = "#FF8D08",
   "Endothelial_cells_4"       = "#CCC618", "Endothelial_cells_3"       = "#EADE8D",
@@ -138,7 +138,7 @@ plot_spatial_fov(file.path(POLY_DIR, "Slide_1.csv"), "Slide_1", 1, meta, "refine
 plot_spatial_fov(file.path(POLY_DIR, "Slide_2.csv"), "Slide_2", 16, meta, "refined_hep", refined_col, file.path(OUT_DIR, "cslide2_fov16_refined.png"))
 
 # 3. Refined Annotations (Myeloids Only)
-myeloid_types <- c("M2_LYVE1", "KC1", "KC2", "Monocytes", "DCs_CD1C", "M1")
+myeloid_types <- c("h-Mac", "i-KC", "h-KC", "Monocytes", "DCs_CD1C", "i-Mac")
 meta$refined_myel <- ifelse(meta$refined %in% myeloid_types, meta$refined, "Other")
 
 plot_spatial_fov(file.path(POLY_DIR, "Slide_2.csv"), "Slide_2", 2, meta, "refined_myel", refined_col, file.path(OUT_DIR, "cslide2_fov2_refined_myel.png"))

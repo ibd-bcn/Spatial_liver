@@ -63,8 +63,8 @@ health_order <- c("HC", "HBV", "HDV")
 all_ann_colors <- c(
   "Hepatocytes" = "#E69F00", "Cholangiocytes" = "#4DBBD5",
   "Monocytes"   = "#1F78B4", "Neutrophils" = "#A6CEE3",
-  "KC1"         = "#33A02C", "KC2"         = "#B2DF8A",
-  "M1"          = "#FB9A99", "M2-LYVE1"    = "#E31A1C",
+  "i-KC"         = "#33A02C", "h-KC"         = "#B2DF8A",
+  "i-Mac"          = "#FB9A99", "M2-LYVE1"    = "#E31A1C",
   "DCs CD1C"    = "#FF7F00", "Mast cells"  = "#6A3D9A",
   "Memory B cells"          = "#FFD1A1", "pDC"                     = "#FFB066",
   "Plasma cells"            = "#FF8C42", "Naive B cells"           = "#E76F00",
@@ -404,11 +404,11 @@ plot_liana_interactions <- function(dotplot_obj, plot_title) {
 }
 
 # Generate and Export
-kc1_to_hep_dot <- prepare_kc_to_hep_dotplot(health_list, "KC1", top_n_per_condition)
-kc2_to_hep_dot <- prepare_kc_to_hep_dotplot(health_list, "KC2", top_n_per_condition)
+kc1_to_hep_dot <- prepare_kc_to_hep_dotplot(health_list, "i-KC", top_n_per_condition)
+kc2_to_hep_dot <- prepare_kc_to_hep_dotplot(health_list, "h-KC", top_n_per_condition)
 
-p_kc1_to_hep <- plot_liana_interactions(kc1_to_hep_dot, "KC1 → Hepatocytes")
-p_kc2_to_hep <- plot_liana_interactions(kc2_to_hep_dot, "KC2 → Hepatocytes")
+p_kc1_to_hep <- plot_liana_interactions(kc1_to_hep_dot, "i-KC → Hepatocytes")
+p_kc2_to_hep <- plot_liana_interactions(kc2_to_hep_dot, "h-KC → Hepatocytes")
 
 ggsave(filename = file.path(OUT_DIR, "supfig3e_kc1_to_hepatocytes.png"), plot = p_kc1_to_hep, width = plot_width, height = plot_height, dpi = 1200)
 ggsave(filename = file.path(OUT_DIR, "supfig3e_kc2_to_hepatocytes.png"), plot = p_kc2_to_hep, width = plot_width, height = plot_height, dpi = 1200)

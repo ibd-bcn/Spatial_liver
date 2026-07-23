@@ -41,9 +41,9 @@ refined_col <- c(
   "Tem_Trm_cytotoxic_T_cells" = "#4ae9ff", "Effector_helper_T_cells"   = "#0091AB",
   "Naive_T_cells"             = "#BBD6DB", "Memory_B_cells"            = "#E34183",
   "Plasma_cells"              = "#F1B8EF", "Naive_B_cells"             = "#FE64F9",
-  "Monocytes"                 = "#a11191", "KC1"                       = "#ff0077",
-  "M2_LYVE1"                  = "#ffbf00", "KC2"                       = "#56c9f2",
-  "DCs_CD1C"                  = "#02fa8d", "M1"                        = "#9c78fe",
+  "Monocytes"                 = "#a11191", "i-KC"                       = "#ff0077",
+  "h-Mac"                  = "#ffbf00", "h-KC"                       = "#56c9f2",
+  "DCs_CD1C"                  = "#02fa8d", "i-Mac"                        = "#9c78fe",
   "Endothelial_cells_2"       = "#FFDC5F", "Fibroblasts"               = "#DB9925",
   "Endothelial_cells_1"       = "#F9F452", "Smooth_muscle_cells"       = "#FF8D08",
   "Endothelial_cells_4"       = "#CCC618", "Endothelial_cells_3"       = "#EADE8D",
@@ -175,9 +175,9 @@ patient_map <- unique(meta[, c("sample", "patient_type")])
 sam <- setNames(patient_map$patient_type, patient_map$sample)
 
 n10 <- combined_df[combined_df$sample %in% unique(meta[meta$patient_type %in% c("N10", "N02"), ]$sample), ]
-all_kc1 <- n10[n10$from == "Hepatocyte" & n10$to %in% c("Fibroblasts", "HSC", "KC1", "KC2", "T-cells", "Plasma_cells"), ]
+all_kc1 <- n10[n10$from == "Hepatocyte" & n10$to %in% c("Fibroblasts", "HSC", "i-KC", "h-KC", "T-cells", "Plasma_cells"), ]
 
-all_kc1$to <- factor(x = all_kc1$to, levels = c("Fibroblasts", "HSC", "KC1", "KC2", "T-cells", "Plasma_cells"))
+all_kc1$to <- factor(x = all_kc1$to, levels = c("Fibroblasts", "HSC", "i-KC", "h-KC", "T-cells", "Plasma_cells"))
 all_kc1$patient_type <- sam[all_kc1$sample]
 all_kc1$interval_numeric <- factor(all_kc1$bin, levels = sort(unique(all_kc1$bin)))
 
