@@ -1,4 +1,4 @@
-# Spatial Profiling of HBV and HDV Infection in Human Liver
+# Spatial profiling of HBV and HDV infected human livers reveals distinct hepatic remodeling and restoration following HDV clearance
 
 [![R Version](https://img.shields.io/badge/R-v4.3.2-blue.svg)](https://cran.r-project.org/)
 [![Python Version](https://img.shields.io/badge/Python-v3.9+-yellow.svg)](https://www.python.org/)
