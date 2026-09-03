@@ -156,11 +156,10 @@ volcano <- function(anot = "subset", ct, dif_col = "tissue", seu_obj, id1, id2) 
   } else {
     object <- seu_obj
   }
-  
+  object <- AggregateExpression(object, group.by = c("patient_type",dif_col,"fov"),return.seurat = T)
   object <- NormalizeData(object)
   object <- ScaleData(object)
   object <- SetIdent(object, value = object@meta.data[[dif_col]])
-  
   deg_results <- FindMarkers(object, ident.1 = id1, ident.2 = id2)
   deg_results <- na.omit(deg_results)
   deg_results$genes <- rownames(deg_results)
