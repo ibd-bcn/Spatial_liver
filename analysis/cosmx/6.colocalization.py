@@ -28,7 +28,7 @@ OUT_DIR   = "/path/to/python_colocalization_dir/"
 
 # Processing parameters
 DISTANCES      = range(100, 1600, 50)
-N_PERMUTATIONS = 100
+N_PERMUTATIONS = 1000
 BATCH_SIZE     = 10_000
 
 # Ensure output directory exists
@@ -57,6 +57,8 @@ def main():
         for radius in DISTANCES:
             print(f"\nStep 1: Querying neighbors at radius {radius}...")
             neighbors = tree.query_radius(coords, r=radius)
+            #Delete self-connections
+            neighbors = np.array([n[n != i] for i, n in enumerate(neighbors)], dtype=object)
             n_cells = len(neighbors)
             sparse_chunks = []
 
