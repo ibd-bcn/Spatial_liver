@@ -12,6 +12,7 @@ suppressPackageStartupMessages({
   library(clusterProfiler)
   library(org.Hs.eg.db)
   library(grid)
+  library(ggforce)
 })
 
 options(bitmapType = "cairo")
@@ -128,6 +129,16 @@ refined_col_annot <- c(
   "Schwann cells"           = "#2A9D8F"
 )
 
+#PCA patient
+patient_pal <- c(
+  "B07"   = "#FF3D7F",  # hot pink
+  "BH129" = "#00B4D8",  # electric cyan
+  "D03"   = "#FFB000",  # golden amber
+  "D13"   = "#7B2CBF",  # vivid purple
+  "HC"    = "#4A4A4A",  # charcoal (neutral for controls)
+  "N02"   = "#06D6A0",  # mint green
+  "N10"   = "#FF6B00"   # bright orange
+)
 # ==============================================================================
 # 2. Reusable Plotting Functions
 # ==============================================================================
@@ -203,6 +214,7 @@ volcano <- function(anot = "subset", ct, dif_col = "tissue", seu_obj, id1, id2) 
   } else {
     object <- seu_obj
   }
+  object <- AggregateExpression(object, group.by = c("patient_type",dif_col,"fov"),return.seurat = T)
   object <- NormalizeData(object)
   object <- ScaleData(object)
   object <- SetIdent(object, value = object@meta.data[[dif_col]])
@@ -246,6 +258,57 @@ volcano <- function(anot = "subset", ct, dif_col = "tissue", seu_obj, id1, id2) 
   return(list(plot = p, data = deg_results))
 }
 
+#Helper for PCA
+plot_pseudobulk_pca <- function(seurat_obj, palette, out_file,
+                                color_var  = "patient_type",
+                                group_vars = c("patient_type", "fov", "etiology"),
+                                max_pcs    = 5) {
+  # Pseudobulk per patient_type x FOV x etiology (sums raw counts)
+  pb <- AggregateExpression(seurat_obj, assays = "RNA", group.by = group_vars, return.seurat = TRUE)
+  
+  # Small targeted panel: skip FindVariableFeatures and use all genes
+  pb <- NormalizeData(pb)
+  pb <- ScaleData(pb, features = rownames(pb))
+  n_pcs <- min(max_pcs, ncol(pb) - 1)  # npcs capped by n pseudobulk samples - 1
+  pb <- RunPCA(pb, features = rownames(pb), npcs = n_pcs, verbose = FALSE)
+  
+  df <- data.frame(
+    Embeddings(pb, reduction = "pca")[, 1:2],
+    group = pb@meta.data[[color_var]]
+  )
+  
+  # AggregateExpression replaces "_" with "-" in group values; align palette names
+  names(palette) <- gsub("_", "-", names(palette))
+  
+  legend_title <- tools::toTitleCase(gsub("_", " ", color_var))
+  
+  p <- ggplot(df, aes(x = PC_1, y = PC_2, color = group)) +
+    geom_mark_ellipse(aes(fill = group), alpha = 0.15, expand = unit(3, "mm")) +
+    geom_point(size = 4) +
+    scale_color_manual(values = palette) +
+    scale_fill_manual(values = palette) +
+    scale_x_continuous(expand = expansion(mult = 0.1)) +
+    scale_y_continuous(expand = expansion(mult = 0.1)) +
+    coord_cartesian(clip = "off") +
+    theme_classic() +
+    labs(color = legend_title, fill = legend_title) +
+    theme(
+      axis.line         = element_line(linewidth = 1.2, color = "black"),
+      axis.ticks        = element_line(linewidth = 1.2, color = "black"),
+      axis.ticks.length = unit(2.5, "mm"),
+      axis.text         = element_text(size = 14, color = "black"),
+      axis.title        = element_text(size = 16, face = "bold"),
+      legend.text       = element_text(size = 13),
+      legend.title      = element_text(size = 14, face = "bold"),
+      plot.margin       = margin(10, 10, 10, 10)
+    )
+  
+  png(filename = out_file, width = 8, height = 6, units = "in", res = 1200)
+  print(p)
+  dev.off()
+  
+  return(invisible(list(plot = p, pseudobulk = pb)))
+}
 
 # ==============================================================================
 # Sup Fig 2A - UMAPS scRNAseq
@@ -385,3 +448,18 @@ print(p_enrich)
 dev.off()
 
 message("Supplementary Figure 2 generation complete.")
+
+# ==============================================================================
+# Sup Fig 2F - PCAs 
+# ==============================================================================
+
+# Hepatocytes only
+seu_hepatos <- seu[, seu@meta.data$subset %in% c("hepatocytes", "IM-hepatocytes")]
+plot_pseudobulk_pca(seurat_obj = seu_hepatos, palette = patient_pal,
+                    out_file = file.path(OUT_DIR, "supfig2f_pca_hepatocytes.png"))
+
+# All cells
+plot_pseudobulk_pca(seurat_obj = seu, palette = patient_pal,
+                    out_file = file.path(OUT_DIR, "supfig2f_pca_all.png"))
+
+
